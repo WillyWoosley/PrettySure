@@ -2,8 +2,6 @@ use bevy::prelude::*;
 
 use crate::AppState;
 
-const ANSWER_COUNT: u8 = 4;
-
 #[derive(Component)]
 struct AnswerText;
 
@@ -98,11 +96,12 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
             },
             color: Color::NONE.into(),
             ..Default::default()
-
         }).with_children(|parent| {
             // Question Container
             parent.spawn_bundle(NodeBundle {
                 style: Style {
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     size: Size::new(Val::Percent(100.), Val::Percent(30.)),
                     ..Default::default()
                 },
@@ -124,44 +123,50 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
                 });
             });
             
-            parent.spawn_bundle(NodeBundle {
-                style: Style {
-                    size: Size::new(Val::Percent(100.), Val::Percent(70.)),
-                    ..Default::default()
-                },
-                color: Color::NONE.into(),
-                ..Default::default()
-            }).with_children(|parent| {
-            // Answer Containers
-            for i in 0..ANSWER_COUNT {
+            for _ in 0..2 {
+                // Row Answer Container
                 parent.spawn_bundle(NodeBundle {
                     style: Style {
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        margin: Rect::all(Val::Px(5.)),
                         padding: Rect::all(Val::Px(5.)),
-                        size: Size::new(Val::Px(300.), Val::Px(200.)),
+                        size: Size::new(Val::Percent(100.), Val::Percent(35.)),
                         ..Default::default()
                     },
-                    color: Color::YELLOW.into(),
+                    color: Color::NONE.into(),
                     ..Default::default()
                 }).with_children(|parent| {
-                    // Answer Text
-                    parent.spawn_bundle(TextBundle {
-                        text: Text::with_section(
-                            format!("Temp Text {}", i),
-                            TextStyle {
-                                font: asset_server.load("fonts/PublicSans-Medium.ttf"),
-                                font_size: 24.,
-                                color: Color::BLACK,
+                    for _ in 0..2 {
+                        // Answer Box
+                        parent.spawn_bundle(NodeBundle {
+                            style: Style {
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                margin: Rect::all(Val::Px(5.)),
+                                padding: Rect::all(Val::Px(5.)),
+                                size: Size::new(Val::Percent(50.), Val::Percent(100.)),
+                                ..Default::default()
                             },
-                            Default::default(),
-                        ),
-                        ..Default::default()
-                    });
+                            color: Color::YELLOW.into(),
+                            ..Default::default()
+                        }).with_children(|parent| {
+                            // Answer Text
+                             parent.spawn_bundle(TextBundle {
+                                text: Text::with_section(
+                                    "Temporary answer text",
+                                    TextStyle {
+                                        font: asset_server.load(
+                                                  "fonts/PublicSans-Medium.ttf"
+                                              ),
+                                        font_size: 24.,
+                                        color: Color::BLACK,
+                                    },
+                                    Default::default()
+                                ),
+                                ..Default::default()
+                            });
+                        });
+                    }
                 });
             }
-            });
         });
 
         // Right Border
