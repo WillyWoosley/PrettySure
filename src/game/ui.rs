@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 
 use crate::AppState;
-
-#[derive(Component)]
-struct AnswerText;
+use crate::game::answer::{AnswerText, QuestionText, SubmitButton};
 
 pub struct UiPlugin;
 
@@ -35,7 +33,6 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
             },
             color: Color::rgb(0.5, 0.5, 0.5).into(),
             ..Default::default()
-
         }).with_children(|parent| {
             // Counter Text Container
             parent.spawn_bundle(NodeBundle {
@@ -91,6 +88,7 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
             style: Style {
                 flex_direction: FlexDirection::ColumnReverse,
                 flex_wrap: FlexWrap::Wrap,
+                align_items: AlignItems::Center,
                 size: Size::new(Val::Percent(70.), Val::Percent(100.)),
                 ..Default::default()
             },
@@ -120,7 +118,7 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
                         Default::default(),
                     ),
                     ..Default::default()
-                });
+                }).insert(QuestionText);
             });
             
             for _ in 0..2 {
@@ -128,7 +126,7 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
                 parent.spawn_bundle(NodeBundle {
                     style: Style {
                         padding: Rect::all(Val::Px(5.)),
-                        size: Size::new(Val::Percent(100.), Val::Percent(35.)),
+                        size: Size::new(Val::Percent(100.), Val::Percent(30.)),
                         ..Default::default()
                     },
                     color: Color::NONE.into(),
@@ -162,11 +160,35 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
                                     Default::default()
                                 ),
                                 ..Default::default()
-                            });
+                            }).insert(AnswerText);
                         });
                     }
                 });
             }
+
+            // Submit Button
+            parent.spawn_bundle(ButtonBundle {
+                style: Style {
+                    size: Size::new(Val::Percent(20.), Val::Percent(8.)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..Default::default()
+                },
+                ..Default::default()
+            }).with_children(|parent| {
+                parent.spawn_bundle(TextBundle {
+                    text: Text::with_section(
+                        "Submit?",
+                        TextStyle {
+                            font: asset_server.load("fonts/PublicSans-Medium.ttf"),
+                            font_size: 30.,
+                            color: Color::WHITE,
+                        },
+                        Default::default(),
+                    ),
+                    ..Default::default()
+                });
+            }).insert(SubmitButton);
         });
 
         // Right Border

@@ -11,6 +11,13 @@ pub enum AppState {
     Game,
 }
 
+#[derive(Default)]
+pub struct ButtonMaterials {
+    none: UiColor,
+    hovered: UiColor,
+    clicked: UiColor,
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -28,7 +35,11 @@ fn main() {
 }
 
 fn setup(mut cmds: Commands) {
-    cmds.spawn_bundle(OrthographicCameraBundle::new_2d());
     cmds.spawn_bundle(UiCameraBundle::default());
+    cmds.insert_resource(ButtonMaterials {
+        none: Color::rgb(0.15, 0.15, 0.15).into(),
+        hovered: Color::rgb(0.25, 0.25, 0.25).into(),
+        clicked: Color::rgb(0.35, 0.75, 0.35).into(),
+    });
 }
 

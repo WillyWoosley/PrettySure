@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::AppState;
+use crate::{AppState, ButtonMaterials};
 
 pub struct MenuPlugin;
 
@@ -28,7 +28,6 @@ fn setup_menu(mut cmds: Commands, asset_server: Res<AssetServer>) {
             align_items: AlignItems::Center,
             ..Default::default()
         },
-        color: Color::rgb(0.15, 0.15, 0.15).into(),
         ..Default::default()
     })
     .with_children(|parent| {
@@ -51,18 +50,20 @@ fn setup_menu(mut cmds: Commands, asset_server: Res<AssetServer>) {
 
 fn play_button(mut state: ResMut<State<AppState>>, 
                mut query: Query<(&Interaction, &mut UiColor),
-                                (Changed<Interaction>, With<Button>)>
+                                (Changed<Interaction>, With<Button>)>,
+               button_colors: Res<ButtonMaterials>,               
 ) {
     for (interaction, mut color) in query.iter_mut() {
         match interaction {
             Interaction::Clicked => {
+                *color = button_colors.clicked.clone();
                 state.set(AppState::Game).unwrap();
             },
             Interaction::Hovered => {
-                *color = Color::rgb(0.25, 0.25, 0.25).into();
+                *color = button_colors.hovered.clone();
             },
             Interaction::None => {
-                *color = Color::rgb(0.15, 0.15, 0.15).into();
+                *color = button_colors.none.clone();
             }
         }
     }
