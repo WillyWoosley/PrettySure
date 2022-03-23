@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::AppState;
 use crate::game::answer::{AnswerText, QuestionText, SubmitButton};
+use crate::game::token::TokenSlot;
 
 pub struct UiPlugin;
 
@@ -28,16 +29,18 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
         // Left Border
         parent.spawn_bundle(NodeBundle {
             style: Style {
+                flex_direction: FlexDirection::ColumnReverse,
+                justify_content: JustifyContent::FlexEnd,
                 size: Size::new(Val::Percent(15.), Val::Percent(100.)),
                 ..Default::default()
             },
-            color: Color::rgb(0.5, 0.5, 0.5).into(),
+            color: Color::NONE.into(),
             ..Default::default()
         }).with_children(|parent| {
             // Counter Text Container
             parent.spawn_bundle(NodeBundle {
                 style: Style {
-                    size: Size::new(Val::Percent(100.), Val::Percent(100.)),
+                    size: Size::new(Val::Percent(100.), Val::Percent(25.)),
                     flex_direction: FlexDirection::ColumnReverse,
                     ..Default::default()
                 },
@@ -79,6 +82,31 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
                     ),
                     ..Default::default()
                 });
+            });
+
+            // Token Slots
+            parent.spawn_bundle(NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::FlexEnd,
+                    size: Size::new(Val::Percent(100.), Val::Percent(75.)),
+                    ..Default::default()
+                },
+                color: Color::NONE.into(),
+                ..Default::default()
+            }).with_children(|parent| {
+                for _ in 0..5 {
+                    parent.spawn_bundle(NodeBundle {
+                        style: Style {
+                            margin: Rect::all(Val::Px(2.5)),
+                            size: Size::new(Val::Percent(50.), Val::Percent(20.)),
+                            ..Default::default()
+                        },
+                        color: Color::NONE.into(),
+                        ..Default::default()
+                    }).insert(TokenSlot);
+                }
             });
         });
         
@@ -197,7 +225,7 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
                 size: Size::new(Val::Percent(15.), Val::Percent(100.)),
                 ..Default::default()
             },
-            color: Color::rgb(0.5, 0.5, 0.5).into(),
+            color: Color::NONE.into(),
             ..Default::default()
 
         });

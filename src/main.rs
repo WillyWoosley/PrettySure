@@ -20,15 +20,14 @@ pub struct ButtonMaterials {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MenuPlugin)
-        .add_plugin(GamePlugin)
         .insert_resource(WindowDescriptor {
             width: 800.,
             height: 600.,
             title: "Trivia Game".to_string(),
             ..Default::default()
-        })
+        })       .add_plugins(DefaultPlugins)
+        .add_plugin(MenuPlugin)
+        .add_plugin(GamePlugin)
         .add_state(AppState::Menu)
         .add_startup_system(setup)
         .run();
@@ -36,6 +35,8 @@ fn main() {
 
 fn setup(mut cmds: Commands) {
     cmds.spawn_bundle(UiCameraBundle::default());
+    cmds.spawn_bundle(OrthographicCameraBundle::new_2d());
+    
     cmds.insert_resource(ButtonMaterials {
         none: Color::rgb(0.15, 0.15, 0.15).into(),
         hovered: Color::rgb(0.25, 0.25, 0.25).into(),
