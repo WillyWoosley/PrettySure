@@ -1,7 +1,11 @@
 use bevy::prelude::*;
 
 use crate::AppState;
-use crate::game::answer::{AnswerText, QuestionText, SubmitButton};
+use crate::game::answer::{
+    AnswerSlot,
+    QuestionText, 
+    SubmitButton,
+};
 use crate::game::token::TokenSlot;
 
 pub struct UiPlugin;
@@ -171,25 +175,9 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
                                 size: Size::new(Val::Percent(50.), Val::Percent(100.)),
                                 ..Default::default()
                             },
-                            color: Color::YELLOW.into(),
+                            color: Color::NONE.into(),
                             ..Default::default()
-                        }).with_children(|parent| {
-                            // Answer Text
-                             parent.spawn_bundle(TextBundle {
-                                text: Text::with_section(
-                                    "Temporary answer text",
-                                    TextStyle {
-                                        font: asset_server.load(
-                                                  "fonts/PublicSans-Medium.ttf"
-                                              ),
-                                        font_size: 24.,
-                                        color: Color::BLACK,
-                                    },
-                                    Default::default()
-                                ),
-                                ..Default::default()
-                            }).insert(AnswerText);
-                        });
+                        }).insert(AnswerSlot);
                     }
                 });
             }

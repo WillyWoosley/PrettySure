@@ -47,7 +47,7 @@ impl Plugin for TokenPlugin {
 fn spawn_tokens(mut cmds: Commands, asset_server: Res<AssetServer>,
                 query: Query<(&GlobalTransform, &Node), Added<TokenSlot>>) {
     for (slot_gt, slot_node) in query.iter() {
-        let token_t = slot_gt.translation.clone() + Vec3::new(OFFSET_X, OFFSET_Y, 0.);
+        let token_t = slot_gt.translation + Vec3::new(OFFSET_X, OFFSET_Y, 0.);
 
         cmds.spawn_bundle(TokenBundle {
             token: Token,
