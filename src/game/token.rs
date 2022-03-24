@@ -17,18 +17,16 @@ struct Draggable;
 #[derive(Component)]
 struct Dragged;
 #[derive(Default, Component)]
-struct Bounds {
-    min_x: f32,
-    min_y: f32,
-    max_x: f32,
-    max_y: f32,
+struct SideLength {
+    x_len: f32,
+    y_len: f32,
 }
 
 #[derive(Default, Bundle)]
 struct TokenBundle {
     token: Token,
     draggable: Draggable,
-    bounds: Bounds,
+    sides: SideLength,
     transform: Transform,
     global_transform: GlobalTransform,
 }
@@ -37,8 +35,11 @@ impl Plugin for TokenPlugin {
     fn build(&self, app: &mut App) {
         app.add_system_to_stage(CoreStage::Last, spawn_tokens)
            .add_system_set(
-               SystemSet::on_update(AppState::Game).with_system(mouse_click)
-                                                   .with_system(drag_token));
+               SystemSet::on_update(AppState::Game).with_system(up_draggable)
+                                                   .with_system(down_draggable)
+                                                   .with_system(drag_token)
+           );
+        
     }
 }
 
@@ -51,11 +52,9 @@ fn spawn_tokens(mut cmds: Commands, asset_server: Res<AssetServer>,
         cmds.spawn_bundle(TokenBundle {
             token: Token,
             draggable: Draggable,
-            bounds: Bounds {
-                min_x: token_t.x - (slot_node.size.x / 2.),
-                max_x: token_t.x + (slot_node.size.x / 2.),
-                min_y: token_t.y - (slot_node.size.y / 2.),
-                max_y: token_t.y + (slot_node.size.y / 2.),
+            sides: SideLength {
+                x_len: slot_node.size.x,
+                y_len: slot_node.size.y,
             },
             transform: Transform {
                 translation: token_t,
@@ -76,12 +75,12 @@ fn spawn_tokens(mut cmds: Commands, asset_server: Res<AssetServer>,
 }
 
 // Sets a Draggable element to Dragged if it was clicked
-fn mouse_click(btn_press: Res<Input<MouseButton>>,
-               mut draggable_query: Query<(Entity, &Bounds, &mut Transform), 
+fn up_draggable(btn_press: Res<Input<MouseButton>>,
+                mut draggable_query: Query<(Entity, &SideLength, &mut Transform), 
                                         With<Draggable>>,
-               dragged_query: Query<With<Dragged>>,
-               mut cmds: Commands,
-               windows: Res<Windows>,
+                dragged_query: Query<With<Dragged>>,
+                mut cmds: Commands,
+                windows: Res<Windows>,
 ) {
     if btn_press.just_pressed(MouseButton::Left) && dragged_query.iter().len() == 0 {
         // Find current cursor coords
@@ -94,11 +93,24 @@ fn mouse_click(btn_press: Res<Input<MouseButton>>,
         
         // Check to see if click was on any Draggable
         for (entity_id, bounds, mut drag_t) in draggable_query.iter_mut() {
-            if in_bounds(&cursor_coords, bounds) {
+            if in_bounds(&cursor_coords, bounds, &drag_t.translation) {
                 cmds.entity(entity_id).insert(Dragged);
                 drag_t.translation.z += 1.; // So Dragged above other Draggables
                 break; // To ensure only one token dragged at a time
             }
+        }
+    }
+}
+
+// Put down a Dragged element on a left click
+fn down_draggable(btn_press: Res<Input<MouseButton>>,
+                  dragged_query: Query<Entity, With<Dragged>>,
+                  mut cmds: Commands,
+) {
+    if btn_press.just_pressed(MouseButton::Left) {
+        // Stop the entity from being dragged
+        for entity_id in dragged_query.iter() {
+            cmds.entity(entity_id).remove::<Dragged>();
         }
     }
 }
@@ -117,9 +129,14 @@ fn drag_token(mut cursor_move: EventReader<CursorMoved>,
     }
 }
 
-// Determines if the click location was within Bounds
-fn in_bounds(cursor_pos: &Vec2, bounds: &Bounds) -> bool {
-    cursor_pos.x < bounds.max_x && cursor_pos.x > bounds.min_x &&
-    cursor_pos.y < bounds.max_y && cursor_pos.y > bounds.min_y
+// Determines if the click location was within bounds
+fn in_bounds(cursor_pos: &Vec2, sides: &SideLength, center: &Vec3) -> bool {
+    let min_x = center.x - (sides.x_len / 2.);
+    let max_x = center.x + (sides.x_len / 2.);
+    let min_y = center.y - (sides.y_len / 2.);
+    let max_y = center.y + (sides.y_len / 2.);
+
+    cursor_pos.x < max_x && cursor_pos.x > min_x &&
+    cursor_pos.y < max_y && cursor_pos.y > min_y
 }
 
