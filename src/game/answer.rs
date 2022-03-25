@@ -15,6 +15,8 @@ pub struct SubmitButton;
 pub struct Answer;
 #[derive(Component)]
 struct AnswerText;
+#[derive(Default, Component, Clone, Copy)]
+pub struct AnswerColor(pub Color);
 #[derive(Component)]
 pub struct AnswerSlot;
 #[derive(Component)]
@@ -23,6 +25,7 @@ pub struct QuestionText;
 #[derive(Default, Bundle)]
 struct AnswerBundle {
     answer: Answer,
+    color: AnswerColor,
     side_length: SideLength,
     transform: Transform,
     global_transform: GlobalTransform,
@@ -46,7 +49,10 @@ fn spawn_answerblock(answer_slots: Query<(&GlobalTransform, &Node), Added<Answer
                      asset_server: Res<AssetServer>,                     
                      mut cmds: Commands,
 ) {
-    for (answer_gt, answer_node) in answer_slots.iter() {
+    let palette = [AnswerColor(Color::RED), AnswerColor(Color::GREEN), 
+                   AnswerColor(Color::BLUE), AnswerColor(Color::YELLOW)];
+    
+    for (i, (answer_gt, answer_node)) in answer_slots.iter().enumerate() {
         let answer_t = answer_gt.translation + Vec3::new(OFFSET_X, OFFSET_Y, 0.);
 
         // Whole Bundle
@@ -56,6 +62,7 @@ fn spawn_answerblock(answer_slots: Query<(&GlobalTransform, &Node), Added<Answer
                 x_len: answer_node.size.x,
                 y_len: answer_node.size.y,
             },
+            color: palette[i],
             transform: Transform {
                 translation: answer_t,
                 ..Default::default()
@@ -65,7 +72,7 @@ fn spawn_answerblock(answer_slots: Query<(&GlobalTransform, &Node), Added<Answer
             // Answer Sprite
             parent.spawn_bundle(SpriteBundle {
                 sprite: Sprite {
-                    color: Color::rgb(0.25, 0.25, 0.75),
+                    color: palette[i].0,
                     custom_size: Some(answer_node.size),
                     ..Default::default()
                 },

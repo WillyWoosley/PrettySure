@@ -62,7 +62,7 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
                         TextStyle {
                             font: asset_server.load("fonts/PublicSans-Medium.ttf"),
                             font_size: 24.,
-                            color: Color::WHITE,
+                            color: Color::BLACK,
                         },
                         Default::default()
                     ),
@@ -80,7 +80,7 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
                         TextStyle {
                             font: asset_server.load("fonts/PublicSans-Medium.ttf"),
                             font_size: 24.,
-                            color: Color::WHITE,
+                            color: Color::BLACK,
                         },
                         Default::default()
                     ),

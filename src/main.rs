@@ -25,7 +25,9 @@ fn main() {
             height: 600.,
             title: "Trivia Game".to_string(),
             ..Default::default()
-        })       .add_plugins(DefaultPlugins)
+        })
+        .insert_resource(ClearColor(Color::rgb(1., 1., 1.)))
+        .add_plugins(DefaultPlugins)
         .add_plugin(MenuPlugin)
         .add_plugin(GamePlugin)
         .add_state(AppState::Menu)
