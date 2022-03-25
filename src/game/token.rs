@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::AppState;
+use crate::game::answer::Answer;
 
 // Hardcoded for now for predetermined screen size
 const OFFSET_X: f32 = -400.;
@@ -8,8 +9,6 @@ const OFFSET_Y: f32 = -300.;
 
 pub struct TokenPlugin;
 
-#[derive(Default, Component)]
-struct Token;
 #[derive(Component)]
 pub struct TokenSlot;
 #[derive(Default, Component)]
@@ -17,14 +16,15 @@ struct Draggable;
 #[derive(Component)]
 struct Dragged;
 #[derive(Default, Component)]
-struct SideLength {
-    x_len: f32,
-    y_len: f32,
+pub struct SideLength {
+    pub x_len: f32,
+    pub y_len: f32,
 }
+#[derive(Component)]
+struct On(Entity);
 
 #[derive(Default, Bundle)]
 struct TokenBundle {
-    token: Token,
     draggable: Draggable,
     sides: SideLength,
     transform: Transform,
@@ -50,7 +50,6 @@ fn spawn_tokens(mut cmds: Commands, asset_server: Res<AssetServer>,
         let token_t = slot_gt.translation + Vec3::new(OFFSET_X, OFFSET_Y, 0.);
 
         cmds.spawn_bundle(TokenBundle {
-            token: Token,
             draggable: Draggable,
             sides: SideLength {
                 x_len: slot_node.size.x,
@@ -64,7 +63,7 @@ fn spawn_tokens(mut cmds: Commands, asset_server: Res<AssetServer>,
         }).with_children(|parent| {
             parent.spawn_bundle(SpriteBundle {
                 sprite: Sprite {
-                    custom_size: Some(slot_node.size.clone()),
+                    custom_size: Some(slot_node.size),
                     ..Default::default()
                 },
                 texture: asset_server.load("icon.png"),
@@ -94,6 +93,7 @@ fn up_draggable(btn_press: Res<Input<MouseButton>>,
         // Check to see if click was on any Draggable
         for (entity_id, bounds, mut drag_t) in draggable_query.iter_mut() {
             if in_bounds(&cursor_coords, bounds, &drag_t.translation) {
+                cmds.entity(entity_id).remove::<On>();
                 cmds.entity(entity_id).insert(Dragged);
                 drag_t.translation.z += 1.; // So Dragged above other Draggables
                 break; // To ensure only one token dragged at a time
@@ -102,15 +102,27 @@ fn up_draggable(btn_press: Res<Input<MouseButton>>,
     }
 }
 
-// Put down a Dragged element on a left click
+// Put down a Dragged element on a left click, and check if its on an Answer
 fn down_draggable(btn_press: Res<Input<MouseButton>>,
-                  dragged_query: Query<Entity, With<Dragged>>,
+                  dragged_query: Query<(Entity, &GlobalTransform), With<Dragged>>,
+                  answer_query: Query<(Entity, &GlobalTransform, &SideLength),
+                      With<Answer>>,
                   mut cmds: Commands,
 ) {
     if btn_press.just_pressed(MouseButton::Left) {
-        // Stop the entity from being dragged
-        for entity_id in dragged_query.iter() {
+        for (entity_id, dragged_gt) in dragged_query.iter() {
+            // Stop the entity being dragged
             cmds.entity(entity_id).remove::<Dragged>();
+
+            let down_pos = Vec2::new(dragged_gt.translation.x,
+                                     dragged_gt.translation.y);
+            
+            // Check if it was put down in an Answer
+            for (answer_entity, answer_gt, answer_sides) in answer_query.iter() {
+                if in_bounds(&down_pos, answer_sides, &answer_gt.translation) {
+                    cmds.entity(entity_id).insert(On(answer_entity));
+                }
+            }
         }
     }
 }
@@ -130,13 +142,12 @@ fn drag_token(mut cursor_move: EventReader<CursorMoved>,
 }
 
 // Determines if the click location was within bounds
-fn in_bounds(cursor_pos: &Vec2, sides: &SideLength, center: &Vec3) -> bool {
+pub fn in_bounds(pos: &Vec2, sides: &SideLength, center: &Vec3) -> bool {
     let min_x = center.x - (sides.x_len / 2.);
     let max_x = center.x + (sides.x_len / 2.);
     let min_y = center.y - (sides.y_len / 2.);
     let max_y = center.y + (sides.y_len / 2.);
 
-    cursor_pos.x < max_x && cursor_pos.x > min_x &&
-    cursor_pos.y < max_y && cursor_pos.y > min_y
+    pos.x < max_x && pos.x > min_x && pos.y < max_y && pos.y > min_y
 }
 

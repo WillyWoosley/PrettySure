@@ -56,14 +56,14 @@ fn play_button(mut state: ResMut<State<AppState>>,
     for (interaction, mut color) in query.iter_mut() {
         match interaction {
             Interaction::Clicked => {
-                *color = button_colors.clicked.clone();
+                *color = button_colors.clicked;
                 state.set(AppState::Game).unwrap();
             },
             Interaction::Hovered => {
-                *color = button_colors.hovered.clone();
+                *color = button_colors.hovered;
             },
             Interaction::None => {
-                *color = button_colors.none.clone();
+                *color = button_colors.none;
             }
         }
     }

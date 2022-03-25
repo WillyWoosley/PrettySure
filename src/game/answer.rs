@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{AppState, ButtonMaterials};
+use crate::game::token::SideLength;
 
 // Hardcoded for now for predetermined screen size
 const OFFSET_X: f32 = -400.;
@@ -10,8 +11,10 @@ pub struct CheckPlugin;
 
 #[derive(Component)]
 pub struct SubmitButton;
+#[derive(Default, Component)]
+pub struct Answer;
 #[derive(Component)]
-pub struct AnswerText;
+struct AnswerText;
 #[derive(Component)]
 pub struct AnswerSlot;
 #[derive(Component)]
@@ -19,6 +22,8 @@ pub struct QuestionText;
 
 #[derive(Default, Bundle)]
 struct AnswerBundle {
+    answer: Answer,
+    side_length: SideLength,
     transform: Transform,
     global_transform: GlobalTransform,
 }
@@ -43,26 +48,31 @@ fn spawn_answerblock(answer_slots: Query<(&GlobalTransform, &Node), Added<Answer
 ) {
     for (answer_gt, answer_node) in answer_slots.iter() {
         let answer_t = answer_gt.translation + Vec3::new(OFFSET_X, OFFSET_Y, 0.);
-        
+
         // Whole Bundle
         cmds.spawn_bundle(AnswerBundle {
+            answer: Answer,
+            side_length: SideLength {
+                x_len: answer_node.size.x,
+                y_len: answer_node.size.y,
+            },
             transform: Transform {
                 translation: answer_t,
                 ..Default::default()
             },
             ..Default::default()
         }).with_children(|parent| {
-            // Question Sprite
+            // Answer Sprite
             parent.spawn_bundle(SpriteBundle {
                 sprite: Sprite {
                     color: Color::rgb(0.25, 0.25, 0.75),
-                    custom_size: Some(answer_node.size.clone()),
+                    custom_size: Some(answer_node.size),
                     ..Default::default()
                 },
                 ..Default::default()
             });
             
-            // Question Text
+            // Answer Text
             parent.spawn_bundle(Text2dBundle {
                 transform: Transform::from_xyz(0., 0., 0.5),
                 text: Text {
@@ -95,14 +105,14 @@ fn submit_button(mut submit_pressed: EventWriter<SubmitPressed>,
     for (interaction, mut color) in submit_query.iter_mut() {
         match interaction {
             Interaction::Clicked => {
-                *color = button_colors.clicked.clone();
+                *color = button_colors.clicked;
                 submit_pressed.send(SubmitPressed);
             },
             Interaction::Hovered => {
-                *color = button_colors.hovered.clone();
+                *color = button_colors.hovered;
             },
             Interaction::None => {
-                *color = button_colors.none.clone();
+                *color = button_colors.none;
             },
         }
     }
