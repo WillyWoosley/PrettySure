@@ -1,11 +1,12 @@
 use bevy::prelude::*;
 
 use crate::AppState;
-use crate::game::answer::Answer;
+use crate::game::answer::{Answer, AnswerColor};
 
 // Hardcoded for now for predetermined screen size
 const OFFSET_X: f32 = -400.;
 const OFFSET_Y: f32 = -300.;
+const DEFAULT_COLOR: Color = Color::rgb(1., 1., 1.);
 
 pub struct TokenPlugin;
 
@@ -13,6 +14,8 @@ pub struct TokenPlugin;
 pub struct Token;
 #[derive(Component)]
 pub struct TokenSlot;
+#[derive(Component)]
+struct TokenSprite;
 #[derive(Default, Component)]
 struct Draggable;
 #[derive(Component)]
@@ -74,7 +77,7 @@ fn spawn_tokens(mut cmds: Commands, asset_server: Res<AssetServer>,
                 },
                 texture: asset_server.load("icon.png"),
                 ..Default::default()
-            });
+            }).insert(TokenSprite);
         });
     }
 }
@@ -84,6 +87,7 @@ fn up_draggable(btn_press: Res<Input<MouseButton>>,
                 mut draggable_query: Query<(Entity, &SideLength, &mut Transform), 
                                         With<Draggable>>,
                 dragged_query: Query<With<Dragged>>,
+                mut sprite_query: Query<(&mut Sprite, &Parent), With<TokenSprite>>,
                 mut cmds: Commands,
                 windows: Res<Windows>,
 ) {
@@ -102,6 +106,14 @@ fn up_draggable(btn_press: Res<Input<MouseButton>>,
                 cmds.entity(entity_id).remove::<On>();
                 cmds.entity(entity_id).insert(Dragged);
                 drag_t.translation.z += 1.; // So Dragged above other Draggables
+
+                // Change color back to default
+                for (mut sprite, parent) in sprite_query.iter_mut() {
+                    if parent.0 == entity_id {
+                        sprite.color = DEFAULT_COLOR;
+                    }
+                }
+
                 break; // To ensure only one token dragged at a time
             }
         }
@@ -110,9 +122,11 @@ fn up_draggable(btn_press: Res<Input<MouseButton>>,
 
 // Put down a Dragged element on a left click, and check if its on an Answer
 fn down_draggable(btn_press: Res<Input<MouseButton>>,
-                  mut dragged_query: Query<(Entity, &GlobalTransform, &mut Transform), With<Dragged>>,
-                  answer_query: Query<(Entity, &GlobalTransform, &SideLength),
-                      With<Answer>>,
+                  mut dragged_query: Query<(Entity, &GlobalTransform, &mut Transform),
+                      With<Dragged>>,
+                  answer_query: Query<(Entity, &GlobalTransform, &SideLength,
+                      &AnswerColor), With<Answer>>,
+                  mut sprite_query: Query<(&mut Sprite, &Parent), With<TokenSprite>>,
                   mut cmds: Commands,
 ) {
     if btn_press.just_pressed(MouseButton::Left) {
@@ -120,16 +134,22 @@ fn down_draggable(btn_press: Res<Input<MouseButton>>,
             // Stop the entity being dragged
             cmds.entity(entity_id).remove::<Dragged>();
             dragged_t.translation.z -= 1.;
-            info!("down with {:?}", dragged_t.translation);
 
             let down_pos = Vec2::new(dragged_gt.translation.x,
                                      dragged_gt.translation.y);
             
             // Check if it was put down in an Answer
-            for (answer_entity, answer_gt, answer_sides) in answer_query.iter() {
-                if in_bounds(&down_pos, answer_sides, &answer_gt.translation) {
-                    cmds.entity(entity_id).insert(On(answer_entity));
-                }   
+            for (ans_entity, ans_gt, ans_sides, ans_color) in answer_query.iter() {
+                if in_bounds(&down_pos, ans_sides, &ans_gt.translation) {
+                    cmds.entity(entity_id).insert(On(ans_entity));
+
+                    // Change to answers color
+                    for (mut sprite, parent) in sprite_query.iter_mut() {
+                        if parent.0 == entity_id {
+                            sprite.color = ans_color.0; 
+                        }
+                    }
+                }
             }
         }
     }
