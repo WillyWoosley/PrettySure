@@ -190,6 +190,9 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
                     justify_content: JustifyContent::Center,
                     ..Default::default()
                 },
+                visibility: Visibility {
+                    is_visible: false,
+                },
                 ..Default::default()
             }).with_children(|parent| {
                 parent.spawn_bundle(TextBundle {

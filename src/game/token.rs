@@ -9,6 +9,8 @@ const OFFSET_Y: f32 = -300.;
 
 pub struct TokenPlugin;
 
+#[derive(Default, Component)]
+pub struct Token;
 #[derive(Component)]
 pub struct TokenSlot;
 #[derive(Default, Component)]
@@ -21,10 +23,11 @@ pub struct SideLength {
     pub y_len: f32,
 }
 #[derive(Component)]
-struct On(Entity);
+pub struct On(Entity);
 
 #[derive(Default, Bundle)]
 struct TokenBundle {
+    token: Token,
     draggable: Draggable,
     sides: SideLength,
     transform: Transform,
@@ -47,9 +50,12 @@ impl Plugin for TokenPlugin {
 fn spawn_tokens(mut cmds: Commands, asset_server: Res<AssetServer>,
                 query: Query<(&GlobalTransform, &Node), Added<TokenSlot>>) {
     for (slot_gt, slot_node) in query.iter() {
-        let token_t = slot_gt.translation + Vec3::new(OFFSET_X, OFFSET_Y, 0.);
-
+        let mut token_t = slot_gt.translation;
+        token_t.z  = 0.;
+        token_t += Vec3::new(OFFSET_X, OFFSET_Y, 5.);
+        
         cmds.spawn_bundle(TokenBundle {
+            token: Token,
             draggable: Draggable,
             sides: SideLength {
                 x_len: slot_node.size.x,
@@ -104,15 +110,17 @@ fn up_draggable(btn_press: Res<Input<MouseButton>>,
 
 // Put down a Dragged element on a left click, and check if its on an Answer
 fn down_draggable(btn_press: Res<Input<MouseButton>>,
-                  dragged_query: Query<(Entity, &GlobalTransform), With<Dragged>>,
+                  mut dragged_query: Query<(Entity, &GlobalTransform, &mut Transform), With<Dragged>>,
                   answer_query: Query<(Entity, &GlobalTransform, &SideLength),
                       With<Answer>>,
                   mut cmds: Commands,
 ) {
     if btn_press.just_pressed(MouseButton::Left) {
-        for (entity_id, dragged_gt) in dragged_query.iter() {
+        for (entity_id, dragged_gt, mut dragged_t) in dragged_query.iter_mut() {
             // Stop the entity being dragged
             cmds.entity(entity_id).remove::<Dragged>();
+            dragged_t.translation.z -= 1.;
+            info!("down with {:?}", dragged_t.translation);
 
             let down_pos = Vec2::new(dragged_gt.translation.x,
                                      dragged_gt.translation.y);
@@ -121,7 +129,7 @@ fn down_draggable(btn_press: Res<Input<MouseButton>>,
             for (answer_entity, answer_gt, answer_sides) in answer_query.iter() {
                 if in_bounds(&down_pos, answer_sides, &answer_gt.translation) {
                     cmds.entity(entity_id).insert(On(answer_entity));
-                }
+                }   
             }
         }
     }

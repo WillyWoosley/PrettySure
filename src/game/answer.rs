@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{AppState, ButtonMaterials};
-use crate::game::token::SideLength;
+use crate::game::token::{Token, On, SideLength};
 
 // Hardcoded for now for predetermined screen size
 const OFFSET_X: f32 = -400.;
@@ -40,7 +40,8 @@ impl Plugin for CheckPlugin {
            .add_system_set(
                SystemSet::on_update(AppState::Game).with_system(submit_button)
                                                    .with_system(update_question)
-                                                   .with_system(update_answers));
+                                                   .with_system(update_answers)
+                                                   .with_system(submit_visible));
     }
 }
 
@@ -121,6 +122,21 @@ fn submit_button(mut submit_pressed: EventWriter<SubmitPressed>,
             Interaction::None => {
                 *color = button_colors.none;
             },
+        }
+    }
+}
+
+// Checks to see whether the visibility of the submit button should be updated
+fn submit_visible(token_query: Query<Option<&On>, With<Token>>,
+                  mut submit_query: Query<&mut Visibility, With<SubmitButton>>) {
+    let mut submit_visibility = submit_query.single_mut();
+    if submit_visibility.is_visible {
+        if token_query.iter().filter(|on| on.is_none()).count() != 0 {
+            submit_visibility.is_visible = false;
+        }
+    } else {
+        if token_query.iter().filter(|on| on.is_none()).count() == 0 {
+            submit_visibility.is_visible = true;
         }
     }
 }
