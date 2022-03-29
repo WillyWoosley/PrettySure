@@ -210,7 +210,7 @@ fn setup_ui(mut cmds: Commands,
                         Default::default(),
                     ),
                     ..Default::default()
-                });
+                }).insert(SubmitButton);
             }).insert(SubmitButton);
         });
 

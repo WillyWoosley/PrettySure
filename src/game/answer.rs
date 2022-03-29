@@ -118,37 +118,42 @@ fn spawn_answerblock(answer_slots: Query<(&GlobalTransform, &Node), Added<Answer
 }
 
 fn submit_button(mut submit_pressed: EventWriter<SubmitPressed>,
-                 mut submit_query: Query<(&Interaction, &mut UiColor),
+                 mut submit_query: Query<(&Visibility, &Interaction, &mut UiColor),
                                          (Changed<Interaction>, With<SubmitButton>)>,
                  button_colors: Res<ButtonMaterials>,
 ) {
-    for (interaction, mut color) in submit_query.iter_mut() {
-        match interaction {
-            Interaction::Clicked => {
-                *color = button_colors.clicked;
-                submit_pressed.send(SubmitPressed);
-            },
-            Interaction::Hovered => {
-                *color = button_colors.hovered;
-            },
-            Interaction::None => {
-                *color = button_colors.none;
-            },
+    for (visibility, interaction, mut color) in submit_query.iter_mut() {
+        if visibility.is_visible {
+            match interaction {
+                Interaction::Clicked => {
+                    *color = button_colors.clicked;
+                    submit_pressed.send(SubmitPressed);
+                },
+                Interaction::Hovered => {
+                    *color = button_colors.hovered;
+                },
+                Interaction::None => {
+                    *color = button_colors.none;
+                },
+            }
         }
     }
 }
 
 // Checks to see whether the visibility of the submit button should be updated
 fn submit_visible(token_query: Query<Option<&On>, With<Token>>,
-                  mut submit_query: Query<&mut Visibility, With<SubmitButton>>) {
-    let mut submit_visibility = submit_query.single_mut();
-    if submit_visibility.is_visible {
-        if token_query.iter().filter(|on| on.is_none()).count() != 0 {
-            submit_visibility.is_visible = false;
-        }
-    } else {
-        if token_query.iter().filter(|on| on.is_none()).count() == 0 {
-            submit_visibility.is_visible = true;
+                  mut submit_query: Query<&mut Visibility,
+                      With<SubmitButton>>,
+) {
+    for mut submit_visibility in submit_query.iter_mut() {
+        if submit_visibility.is_visible {
+            if token_query.iter().filter(|on| on.is_none()).count() != 0 {
+                submit_visibility.is_visible = false;
+            }
+        } else {
+            if token_query.iter().filter(|on| on.is_none()).count() == 0 {
+                submit_visibility.is_visible = true;
+            }
         }
     }
 }
