@@ -7,6 +7,7 @@ use crate::game::answer::{
     SubmitButton,
 };
 use crate::game::token::TokenSlot;
+use crate::game::trivia::Rounds;
 
 pub struct UiPlugin;
 
@@ -17,7 +18,10 @@ impl Plugin for UiPlugin {
     }
 }
 
-fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
+fn setup_ui(mut cmds: Commands,
+            asset_server: Res<AssetServer>,
+            rounds: Res<Rounds>,
+) {
     cmds.spawn_bundle(UiCameraBundle::default());
 
     cmds.spawn_bundle(NodeBundle {
@@ -141,7 +145,7 @@ fn setup_ui(mut cmds: Commands, asset_server: Res<AssetServer>) {
                 // Question Text
                 parent.spawn_bundle(TextBundle {
                     text: Text::with_section(
-                        "Temporary question text",
+                        rounds.questions[rounds.round_number].text.clone(),
                         TextStyle {
                             font: asset_server.load("fonts/PublicSans-Medium.ttf"),
                             font_size: 40.,

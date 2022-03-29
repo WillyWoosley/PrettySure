@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::{AppState, ButtonMaterials};
 use crate::game::token::{Token, On, SideLength};
+use crate::game::trivia::{Rounds};
 
 // Hardcoded for now for predetermined screen size
 const OFFSET_X: f32 = -400.;
@@ -12,11 +13,13 @@ pub struct CheckPlugin;
 #[derive(Component)]
 pub struct SubmitButton;
 #[derive(Default, Component)]
-pub struct Answer;
+pub struct AnswerBlock;
 #[derive(Component)]
 struct AnswerText;
 #[derive(Default, Component, Clone, Copy)]
 pub struct AnswerColor(pub Color);
+#[derive(Default, Component)]
+pub struct Truth(pub bool);
 #[derive(Component)]
 pub struct AnswerSlot;
 #[derive(Component)]
@@ -24,8 +27,9 @@ pub struct QuestionText;
 
 #[derive(Default, Bundle)]
 struct AnswerBundle {
-    answer: Answer,
+    answer_block: AnswerBlock,
     color: AnswerColor,
+    truth: Truth,
     side_length: SideLength,
     transform: Transform,
     global_transform: GlobalTransform,
@@ -39,31 +43,34 @@ impl Plugin for CheckPlugin {
            .add_system_to_stage(CoreStage::Last, spawn_answerblock)
            .add_system_set(
                SystemSet::on_update(AppState::Game).with_system(submit_button)
-                                                   .with_system(update_question)
-                                                   .with_system(update_answers)
-                                                   .with_system(submit_visible));
+                                                   .with_system(submit_visible)
+                                                   .with_system(submit_tokens)
+                                                   .with_system(update_q_and_a));
     }
 }
 
 // Spawns an 'answerblock' in every added AnswerSlot
 fn spawn_answerblock(answer_slots: Query<(&GlobalTransform, &Node), Added<AnswerSlot>>,
-                     asset_server: Res<AssetServer>,                     
+                     asset_server: Res<AssetServer>,
+                     mut rounds: ResMut<Rounds>,
                      mut cmds: Commands,
 ) {
     let palette = [AnswerColor(Color::RED), AnswerColor(Color::GREEN), 
                    AnswerColor(Color::BLUE), AnswerColor(Color::YELLOW)];
-    
+    let question = &rounds.questions[rounds.round_number];
+
     for (i, (answer_gt, answer_node)) in answer_slots.iter().enumerate() {
         let answer_t = answer_gt.translation + Vec3::new(OFFSET_X, OFFSET_Y, 0.);
 
         // Whole Bundle
         cmds.spawn_bundle(AnswerBundle {
-            answer: Answer,
+            answer_block: AnswerBlock,
+            color: palette[i],
+            truth: Truth(question.answers[i].truth),
             side_length: SideLength {
                 x_len: answer_node.size.x,
                 y_len: answer_node.size.y,
             },
-            color: palette[i],
             transform: Transform {
                 translation: answer_t,
                 ..Default::default()
@@ -86,7 +93,7 @@ fn spawn_answerblock(answer_slots: Query<(&GlobalTransform, &Node), Added<Answer
                 text: Text {
                     sections: vec![
                         TextSection {
-                            value: "Temporary answer text".to_string(),
+                            value: question.answers[i].text.clone(),
                             style: TextStyle {
                                 font: asset_server.load("fonts/PublicSans-Medium.ttf"),
                                 font_size: 24.,
@@ -102,6 +109,11 @@ fn spawn_answerblock(answer_slots: Query<(&GlobalTransform, &Node), Added<Answer
                 ..Default::default()
             }).insert(AnswerText);
         });
+    }
+
+    // Update to first round
+    if answer_slots.iter().last().is_some() {
+        rounds.round_number += 1;
     }
 }
 
@@ -141,22 +153,51 @@ fn submit_visible(token_query: Query<Option<&On>, With<Token>>,
     }
 }
 
-fn update_question(mut submit_pressed: EventReader<SubmitPressed>,
-                    mut question_query: Query<&mut Text, With<QuestionText>>,
+// Determines whether tokens were on a correct or incorrect answer when submitted
+fn submit_tokens(mut submit_pressed: EventReader<SubmitPressed>,
+                 tokens: Query<&On, With<Token>>,
+                 answer_blocks: Query<&Truth, With<AnswerBlock>>,
 ) {
     if submit_pressed.iter().last().is_some() {
-        for mut question in question_query.iter_mut() {
-            question.sections[0].value = String::from("Question updated");
+        let mut correct = 0;
+        for token_on in tokens.iter() {
+            if let Ok(answer_truth) = answer_blocks.get(token_on.0) {
+                if answer_truth.0 {
+                    correct += 1;
+                }
+            }
         }
+
+        info!("Got {} correct guesses!", correct);
     }
 }
 
-fn update_answers(mut submit_pressed: EventReader<SubmitPressed>,
-                  mut answer_query: Query<&mut Text, With<AnswerText>>,
+// Updates QuestionText and AnswerText for a new rounds when SubmitPressed
+fn update_q_and_a(mut submit_pressed: EventReader<SubmitPressed>,
+                  mut qa_text: QuerySet<(
+                      QueryState<&mut Text, With<QuestionText>>,
+                      QueryState<&mut Text, With<AnswerText>>,
+                  )>,
+                  mut rounds: ResMut<Rounds>,
 ) {
     if submit_pressed.iter().last().is_some() {
-        for mut answer in answer_query.iter_mut() {
-            answer.sections[0].value = String::from("Answer updated");
+        let new_q = &rounds.questions[rounds.round_number];
+
+        // Update QuestionText 
+        for mut question_text in qa_text.q0().iter_mut() {
+            question_text.sections[0].value = new_q.text.clone();
+        }
+
+        // Update AnswerText
+        for (i, mut answer_text) in qa_text.q1().iter_mut().enumerate() {
+            answer_text.sections[0].value = new_q.answers[i].text.clone();
+        }
+        
+        // Update and check rounds remaining
+        rounds.round_number += 1;
+        if rounds.round_number == rounds.round_max {
+            // TODO: Signal the end of the game, for now just ceases updates
+            rounds.round_number -= 1;
         }
     }
 }

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::AppState;
-use crate::game::answer::{Answer, AnswerColor};
+use crate::game::answer::{AnswerBlock, AnswerColor};
 
 // Hardcoded for now for predetermined screen size
 const OFFSET_X: f32 = -400.;
@@ -26,7 +26,7 @@ pub struct SideLength {
     pub y_len: f32,
 }
 #[derive(Component)]
-pub struct On(Entity);
+pub struct On(pub Entity);
 
 #[derive(Default, Bundle)]
 struct TokenBundle {
@@ -125,7 +125,7 @@ fn down_draggable(btn_press: Res<Input<MouseButton>>,
                   mut dragged_query: Query<(Entity, &GlobalTransform, &mut Transform),
                       With<Dragged>>,
                   answer_query: Query<(Entity, &GlobalTransform, &SideLength,
-                      &AnswerColor), With<Answer>>,
+                      &AnswerColor), With<AnswerBlock>>,
                   mut sprite_query: Query<(&mut Sprite, &Parent), With<TokenSprite>>,
                   mut cmds: Commands,
 ) {
