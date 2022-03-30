@@ -45,14 +45,17 @@ impl Plugin for CheckPlugin {
                SystemSet::on_update(AppState::Game).with_system(submit_button)
                                                    .with_system(submit_visible)
                                                    .with_system(submit_tokens)
-                                                   .with_system(update_q_and_a));
+                                                   .with_system(update_round)
+                                                   .with_system(update_q_and_a))
+           .add_system_set(
+               SystemSet::on_exit(AppState::Game).with_system(teardown_answerblocks));
     }
 }
 
 // Spawns an 'answerblock' in every added AnswerSlot
 fn spawn_answerblock(answer_slots: Query<(&GlobalTransform, &Node), Added<AnswerSlot>>,
                      asset_server: Res<AssetServer>,
-                     mut rounds: ResMut<Rounds>,
+                     rounds: ResMut<Rounds>,
                      mut cmds: Commands,
 ) {
     let palette = [AnswerColor(Color::RED), AnswerColor(Color::GREEN), 
@@ -109,11 +112,6 @@ fn spawn_answerblock(answer_slots: Query<(&GlobalTransform, &Node), Added<Answer
                 ..Default::default()
             }).insert(AnswerText);
         });
-    }
-
-    // Update to first round
-    if answer_slots.iter().last().is_some() {
-        rounds.round_number += 1;
     }
 }
 
@@ -177,15 +175,27 @@ fn submit_tokens(mut submit_pressed: EventReader<SubmitPressed>,
     }
 }
 
+fn update_round(mut submit_pressed: EventReader<SubmitPressed>,
+                mut rounds: ResMut<Rounds>,
+                mut appstate: ResMut<State<AppState>>,
+) {
+    if submit_pressed.iter().last().is_some() {
+        if rounds.round_number + 1 == rounds.round_max {
+            appstate.set(AppState::Menu).unwrap();
+        } else {
+            rounds.round_number += 1;
+        }
+    }
+}
+
 // Updates QuestionText and AnswerText for a new rounds when SubmitPressed
-fn update_q_and_a(mut submit_pressed: EventReader<SubmitPressed>,
-                  mut qa_text: QuerySet<(
+fn update_q_and_a(mut qa_text: QuerySet<(
                       QueryState<&mut Text, With<QuestionText>>,
                       QueryState<&mut Text, With<AnswerText>>,
                   )>,
-                  mut rounds: ResMut<Rounds>,
+                  rounds: Res<Rounds>,
 ) {
-    if submit_pressed.iter().last().is_some() {
+    if rounds.is_changed() {
         let new_q = &rounds.questions[rounds.round_number];
 
         // Update QuestionText 
@@ -197,13 +207,15 @@ fn update_q_and_a(mut submit_pressed: EventReader<SubmitPressed>,
         for (i, mut answer_text) in qa_text.q1().iter_mut().enumerate() {
             answer_text.sections[0].value = new_q.answers[i].text.clone();
         }
-        
-        // Update and check rounds remaining
-        rounds.round_number += 1;
-        if rounds.round_number == rounds.round_max {
-            // TODO: Signal the end of the game, for now just ceases updates
-            rounds.round_number -= 1;
-        }
+    }
+}
+
+// Removes all Answerblocks and children thereof
+fn teardown_answerblocks(answer_query: Query<Entity, With<AnswerBlock>>, 
+                         mut cmds: Commands,
+) {
+    for answerblock in answer_query.iter() {
+        cmds.entity(answerblock).despawn_recursive();
     }
 }
 

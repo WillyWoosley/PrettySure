@@ -47,9 +47,9 @@ impl Plugin for TokenPlugin {
                SystemSet::on_update(AppState::Game).with_system(up_draggable)
                                                    .with_system(down_draggable)
                                                    .with_system(drag_token)
-                                                   .with_system(reset_tokens)
-           );
-        
+                                                   .with_system(reset_tokens))
+           .add_system_set(
+               SystemSet::on_exit(AppState::Game).with_system(teardown_tokens));
     }
 }
 
@@ -194,6 +194,13 @@ fn reset_tokens(mut token_query: Query<(&mut Transform, &StartSlot), With<Token>
         for mut sprite in token_sprites.iter_mut() {
             sprite.color = DEFAULT_COLOR; 
         }
+    }
+}
+
+// Despawns all Tokens and children thereof
+fn teardown_tokens(token_query: Query<Entity, With<Token>>, mut cmds: Commands) {
+    for token in token_query.iter() {
+        cmds.entity(token).despawn_recursive(); 
     }
 }
 

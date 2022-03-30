@@ -11,10 +11,15 @@ use crate::game::trivia::Rounds;
 
 pub struct UiPlugin;
 
+#[derive(Component)]
+struct UiRoot;
+
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_system_set(
-            SystemSet::on_enter(AppState::Game).with_system(setup_ui));
+               SystemSet::on_enter(AppState::Game).with_system(setup_ui))
+           .add_system_set(
+               SystemSet::on_exit(AppState::Game).with_system(teardown_ui));
     }
 }
 
@@ -224,6 +229,14 @@ fn setup_ui(mut cmds: Commands,
             ..Default::default()
 
         });
-    });
+    }).insert(UiRoot);
+}
+
+
+// Despawns all elements of the Ui 
+fn teardown_ui(ui_query: Query<Entity, With<UiRoot>>, mut cmds: Commands) {
+    for root in ui_query.iter() {
+        cmds.entity(root).despawn_recursive();
+    }
 }
 
