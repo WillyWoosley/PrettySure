@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::AppState;
 use crate::game::answer::{AnswerBlock, AnswerColor};
+use crate::game::trivia::Rounds;
 
 // Hardcoded for now for predetermined screen size
 const OFFSET_X: f32 = -400.;
@@ -14,6 +15,8 @@ pub struct TokenPlugin;
 pub struct Token;
 #[derive(Component)]
 pub struct TokenSlot;
+#[derive(Component)]
+struct StartSlot(Entity);
 #[derive(Component)]
 struct TokenSprite;
 #[derive(Default, Component)]
@@ -44,6 +47,7 @@ impl Plugin for TokenPlugin {
                SystemSet::on_update(AppState::Game).with_system(up_draggable)
                                                    .with_system(down_draggable)
                                                    .with_system(drag_token)
+                                                   .with_system(reset_tokens)
            );
         
     }
@@ -51,8 +55,9 @@ impl Plugin for TokenPlugin {
 
 // Spawns all tokens in the appropriate UI TokenSlots
 fn spawn_tokens(mut cmds: Commands, asset_server: Res<AssetServer>,
-                query: Query<(&GlobalTransform, &Node), Added<TokenSlot>>) {
-    for (slot_gt, slot_node) in query.iter() {
+                query: Query<(Entity, &GlobalTransform, &Node), Added<TokenSlot>>
+) {
+    for (slot_id, slot_gt, slot_node) in query.iter() {
         let mut token_t = slot_gt.translation;
         token_t.z  = 0.;
         token_t += Vec3::new(OFFSET_X, OFFSET_Y, 5.);
@@ -78,7 +83,7 @@ fn spawn_tokens(mut cmds: Commands, asset_server: Res<AssetServer>,
                 texture: asset_server.load("icon.png"),
                 ..Default::default()
             }).insert(TokenSprite);
-        });
+        }).insert(StartSlot(slot_id));
     }
 }
 
@@ -165,6 +170,29 @@ fn drag_token(mut cursor_move: EventReader<CursorMoved>,
             let new_t = movement.position + Vec2::new(OFFSET_X, OFFSET_Y);
             drag_t.translation.x = new_t.x;
             drag_t.translation.y = new_t.y;
+        }
+    }
+}
+
+// Resets tokens to their original state when the next round is begun
+fn reset_tokens(mut token_query: Query<(&mut Transform, &StartSlot), With<Token>>,
+                mut token_sprites: Query<&mut Sprite, With<TokenSprite>>,
+                slot_query: Query<&GlobalTransform, With<TokenSlot>>,
+                rounds: Res<Rounds>,
+) {
+    if rounds.is_changed() {
+        // Reset token positions to original slot
+        for (mut token_t, token_slot) in token_query.iter_mut() {
+            if let Ok(slot_gt) = slot_query.get(token_slot.0) {
+                token_t.translation.x = slot_gt.translation.x + OFFSET_X;
+                token_t.translation.y = slot_gt.translation.y + OFFSET_Y;
+                token_t.translation.z = 5.;
+            }
+        }
+
+        // Reset all tokens to default color
+        for mut sprite in token_sprites.iter_mut() {
+            sprite.color = DEFAULT_COLOR; 
         }
     }
 }
