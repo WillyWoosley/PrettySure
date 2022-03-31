@@ -8,6 +8,7 @@ mod game;
 #[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub enum AppState {
     Menu,
+    Load,
     Game,
 }
 

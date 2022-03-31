@@ -27,8 +27,6 @@ fn setup_ui(mut cmds: Commands,
             asset_server: Res<AssetServer>,
             rounds: Res<Rounds>,
 ) {
-    cmds.spawn_bundle(UiCameraBundle::default());
-
     cmds.spawn_bundle(NodeBundle {
         style: Style {
             size: Size::new(Val::Percent(100.), Val::Percent(100.)),

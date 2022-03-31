@@ -175,19 +175,22 @@ fn drag_token(mut cursor_move: EventReader<CursorMoved>,
 }
 
 // Resets tokens to their original state when the next round is begun
-fn reset_tokens(mut token_query: Query<(&mut Transform, &StartSlot), With<Token>>,
+fn reset_tokens(mut token_query: Query<(Entity, &mut Transform, &StartSlot),
+                    With<Token>>,
                 mut token_sprites: Query<&mut Sprite, With<TokenSprite>>,
                 slot_query: Query<&GlobalTransform, With<TokenSlot>>,
                 rounds: Res<Rounds>,
+                mut cmds: Commands,
 ) {
     if rounds.is_changed() {
         // Reset token positions to original slot
-        for (mut token_t, token_slot) in token_query.iter_mut() {
+        for (token_id, mut token_t, token_slot) in token_query.iter_mut() {
             if let Ok(slot_gt) = slot_query.get(token_slot.0) {
                 token_t.translation.x = slot_gt.translation.x + OFFSET_X;
                 token_t.translation.y = slot_gt.translation.y + OFFSET_Y;
                 token_t.translation.z = 5.;
             }
+            cmds.entity(token_id).remove::<On>();
         }
 
         // Reset all tokens to default color

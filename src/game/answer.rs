@@ -36,10 +36,13 @@ struct AnswerBundle {
 }
 
 struct SubmitPressed;
+struct NewRound; // TODO: would love to remove, but SystemSet and Stages funky ATM,
+                 //       both on my and Bevy's end
 
 impl Plugin for CheckPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SubmitPressed>()
+           .add_event::<NewRound>()
            .add_system_to_stage(CoreStage::Last, spawn_answerblock)
            .add_system_set(
                SystemSet::on_update(AppState::Game).with_system(submit_button)
@@ -158,6 +161,7 @@ fn submit_visible(token_query: Query<Option<&On>, With<Token>>,
 
 // Determines whether tokens were on a correct or incorrect answer when submitted
 fn submit_tokens(mut submit_pressed: EventReader<SubmitPressed>,
+                 mut new_round: EventWriter<NewRound>,
                  tokens: Query<&On, With<Token>>,
                  answer_blocks: Query<&Truth, With<AnswerBlock>>,
 ) {
@@ -172,14 +176,15 @@ fn submit_tokens(mut submit_pressed: EventReader<SubmitPressed>,
         }
 
         info!("Got {} correct guesses!", correct);
+        new_round.send(NewRound);
     }
 }
 
-fn update_round(mut submit_pressed: EventReader<SubmitPressed>,
+fn update_round(mut new_round: EventReader<NewRound>,
                 mut rounds: ResMut<Rounds>,
                 mut appstate: ResMut<State<AppState>>,
 ) {
-    if submit_pressed.iter().last().is_some() {
+    if new_round.iter().last().is_some() {
         if rounds.round_number + 1 == rounds.round_max {
             appstate.set(AppState::Menu).unwrap();
         } else {
