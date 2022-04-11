@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{AppState, ButtonMaterials};
 use crate::game::token::{Token, On, SideLength};
-use crate::game::trivia::{Rounds};
+use crate::game::load::Rounds;
 
 // Hardcoded for now for predetermined screen size
 const OFFSET_X: f32 = -400.;
@@ -43,9 +43,9 @@ impl Plugin for CheckPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SubmitPressed>()
            .add_event::<NewRound>()
-           .add_system_to_stage(CoreStage::Last, spawn_answerblock)
            .add_system_set(
-               SystemSet::on_update(AppState::Game).with_system(submit_button)
+               SystemSet::on_update(AppState::Game).with_system(spawn_answerblock)
+                                                   .with_system(submit_button)
                                                    .with_system(submit_visible)
                                                    .with_system(submit_tokens)
                                                    .with_system(update_round)
@@ -56,7 +56,7 @@ impl Plugin for CheckPlugin {
 }
 
 // Spawns an 'answerblock' in every added AnswerSlot
-fn spawn_answerblock(answer_slots: Query<(&GlobalTransform, &Node), Added<AnswerSlot>>,
+fn spawn_answerblock(answer_slots: Query<(Entity, &GlobalTransform, &Node), With<AnswerSlot>>,
                      asset_server: Res<AssetServer>,
                      rounds: ResMut<Rounds>,
                      mut cmds: Commands,
@@ -65,56 +65,63 @@ fn spawn_answerblock(answer_slots: Query<(&GlobalTransform, &Node), Added<Answer
                    AnswerColor(Color::BLUE), AnswerColor(Color::YELLOW)];
     let question = &rounds.questions[rounds.round_number];
 
-    for (i, (answer_gt, answer_node)) in answer_slots.iter().enumerate() {
-        let answer_t = answer_gt.translation + Vec3::new(OFFSET_X, OFFSET_Y, 0.);
+    for (i, (slot_id, answer_gt, answer_node)) in answer_slots.iter().enumerate() {
+        // Mega scuffed, but only way around my poor programming and Bevy's poor
+        // frame-update dispatch decisions
+        if answer_gt.translation.x != 0. || answer_gt.translation.y != 0. {
+            let answer_t = answer_gt.translation + Vec3::new(OFFSET_X, OFFSET_Y, 0.);
 
-        // Whole Bundle
-        cmds.spawn_bundle(AnswerBundle {
-            answer_block: AnswerBlock,
-            color: palette[i],
-            truth: Truth(question.answers[i].truth),
-            side_length: SideLength {
-                x_len: answer_node.size.x,
-                y_len: answer_node.size.y,
-            },
-            transform: Transform {
-                translation: answer_t,
-                ..Default::default()
-            },
-            ..Default::default()
-        }).with_children(|parent| {
-            // Answer Sprite
-            parent.spawn_bundle(SpriteBundle {
-                sprite: Sprite {
-                    color: palette[i].0,
-                    custom_size: Some(answer_node.size),
+            // Whole Bundle
+            cmds.spawn_bundle(AnswerBundle {
+                answer_block: AnswerBlock,
+                color: palette[i],
+                truth: Truth(question.answers[i].truth),
+                side_length: SideLength {
+                    x_len: answer_node.size.x,
+                    y_len: answer_node.size.y,
+                },
+                transform: Transform {
+                    translation: answer_t,
                     ..Default::default()
                 },
                 ..Default::default()
-            });
-            
-            // Answer Text
-            parent.spawn_bundle(Text2dBundle {
-                transform: Transform::from_xyz(0., 0., 0.5),
-                text: Text {
-                    sections: vec![
-                        TextSection {
-                            value: question.answers[i].text.clone(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/PublicSans-Medium.ttf"),
-                                font_size: 24.,
-                                color: Color::BLACK,
-                            },
-                        },
-                    ],
-                    alignment: TextAlignment {
-                        vertical: VerticalAlign::Center,
-                        horizontal: HorizontalAlign::Center,
+            }).with_children(|parent| {
+                // Answer Sprite
+                parent.spawn_bundle(SpriteBundle {
+                    sprite: Sprite {
+                        color: palette[i].0,
+                        custom_size: Some(answer_node.size),
+                        ..Default::default()
                     },
-                },
-                ..Default::default()
-            }).insert(AnswerText);
-        });
+                    ..Default::default()
+                });
+                
+                // Answer Text
+                parent.spawn_bundle(Text2dBundle {
+                    transform: Transform::from_xyz(0., 0., 0.5),
+                    text: Text {
+                        sections: vec![
+                            TextSection {
+                                value: question.answers[i].text.clone(),
+                                style: TextStyle {
+                                    font: asset_server
+                                              .load("fonts/PublicSans-Medium.ttf"),
+                                    font_size: 24.,
+                                    color: Color::BLACK,
+                                },
+                            },
+                        ],
+                        alignment: TextAlignment {
+                            vertical: VerticalAlign::Center,
+                            horizontal: HorizontalAlign::Center,
+                        },
+                    },
+                    ..Default::default()
+                }).insert(AnswerText);
+            });
+
+            cmds.entity(slot_id).remove::<AnswerSlot>();
+        }
     }
 }
 
@@ -196,8 +203,9 @@ fn update_round(mut new_round: EventReader<NewRound>,
 // Updates QuestionText and AnswerText for a new rounds when SubmitPressed
 fn update_q_and_a(mut qa_text: QuerySet<(
                       QueryState<&mut Text, With<QuestionText>>,
-                      QueryState<&mut Text, With<AnswerText>>,
+                      QueryState<(&mut Text, &Parent), With<AnswerText>>,
                   )>,
+                  mut truths: Query<&mut Truth>,
                   rounds: Res<Rounds>,
 ) {
     if rounds.is_changed() {
@@ -208,9 +216,12 @@ fn update_q_and_a(mut qa_text: QuerySet<(
             question_text.sections[0].value = new_q.text.clone();
         }
 
-        // Update AnswerText
-        for (i, mut answer_text) in qa_text.q1().iter_mut().enumerate() {
-            answer_text.sections[0].value = new_q.answers[i].text.clone();
+        // Update AnswerText and Truth
+        for (i, (mut a_text, a_parent)) in qa_text.q1().iter_mut().enumerate() {
+            a_text.sections[0].value = new_q.answers[i].text.clone();
+            if let Ok(mut a_truth) = truths.get_mut(a_parent.0) {
+                a_truth.0 = new_q.answers[i].truth;
+            }
         }
     }
 }

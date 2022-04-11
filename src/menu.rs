@@ -57,7 +57,7 @@ fn play_button(mut state: ResMut<State<AppState>>,
         match interaction {
             Interaction::Clicked => {
                 *color = button_colors.clicked;
-                state.set(AppState::Game).unwrap();
+                state.set(AppState::Load).unwrap();
             },
             Interaction::Hovered => {
                 *color = button_colors.hovered;

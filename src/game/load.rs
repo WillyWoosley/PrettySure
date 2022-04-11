@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
-pub struct TriviaPlugin;
+use crate::AppState;
+
+pub struct LoadPlugin;
 
 #[derive(Default, Component)]
 pub struct Answer {
@@ -20,15 +22,16 @@ pub struct Rounds {
     pub questions: [Question; 2],
 }
 
-impl Plugin for TriviaPlugin {
+impl Plugin for LoadPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(insert_trivia);
+        app.add_system_set(
+            SystemSet::on_enter(AppState::Load).with_system(insert_trivia));
     }
 }
 
 // Placeholder logic, to be replaced when we start actually pulling real
 // trivia questions
-fn insert_trivia(mut cmds: Commands) {
+fn insert_trivia(mut cmds: Commands, mut appstate: ResMut<State<AppState>>) {
     let questions = [
         Question {
             text: String::from("Question 1"),
@@ -56,11 +59,11 @@ fn insert_trivia(mut cmds: Commands) {
             answers: [
                 Answer {
                     text: String::from("Answer 2.1"),
-                    truth: true,
+                    truth: false,
                 },
                 Answer {
                     text: String::from("Answer 2.2"),
-                    truth: false,
+                    truth: true,
                 },
                 Answer {
                     text: String::from("Answer 2.3"),
@@ -79,5 +82,7 @@ fn insert_trivia(mut cmds: Commands) {
         round_max: questions.len(),
         questions
     });
+
+    appstate.set(AppState::Game).unwrap();
 }
 

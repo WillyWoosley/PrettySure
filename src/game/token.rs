@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::AppState;
 use crate::game::answer::{AnswerBlock, AnswerColor};
-use crate::game::trivia::Rounds;
+use crate::game::load::Rounds;
 
 // Hardcoded for now for predetermined screen size
 const OFFSET_X: f32 = -400.;
