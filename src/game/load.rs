@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use serde::Deserialize;
 
 use crate::AppState;
 
@@ -19,7 +20,28 @@ pub struct Question {
 pub struct Rounds {
     pub round_number: usize,
     pub round_max: usize,
-    pub questions: [Question; 2],
+    pub questions: Vec<Question>,
+}
+
+#[derive(Deserialize)]
+struct ResponseCode(u8);
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+struct ApiQuestion {
+    category: String,
+    r#type: String,
+    difficulty: String,
+    question: String,
+    correct_answer: String,
+    incorrect_answers: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+struct ApiResponse {
+    response_code: ResponseCode,
+    results: Vec<ApiQuestion>,
 }
 
 impl Plugin for LoadPlugin {
@@ -29,53 +51,55 @@ impl Plugin for LoadPlugin {
     }
 }
 
-// Placeholder logic, to be replaced when we start actually pulling real
-// trivia questions
+// Pulls trivia questions from OpenTDB over HTTP and inserts them as the 'Rounds'
+// resource
+//
+// TODO: Better error handling
 fn insert_trivia(mut cmds: Commands, mut appstate: ResMut<State<AppState>>) {
-    let questions = [
-        Question {
-            text: String::from("Question 1"),
-            answers: [
-                Answer {
-                    text: String::from("Answer 1.1"),
-                    truth: true,
-                },
-                Answer {
-                    text: String::from("Answer 1.2"),
-                    truth: false,
-                },
-                Answer {
-                    text: String::from("Answer 1.3"),
-                    truth: false,
-                },
-                Answer {
-                    text: String::from("Answer 1.4"),
-                    truth: false,
-                },
-            ],
-        },
-        Question {
-            text: String::from("Question 2"),
-            answers: [
-                Answer {
-                    text: String::from("Answer 2.1"),
-                    truth: false,
-                },
-                Answer {
-                    text: String::from("Answer 2.2"),
-                    truth: true,
-                },
-                Answer {
-                    text: String::from("Answer 2.3"),
-                    truth: false,
-                },
-                Answer {
-                    text: String::from("Answer 2.4"),
-                    truth: false,
-                },
-            ],
-        },
-    ];
+    let client = reqwest::blocking::Client::new();
+    let url = String::from("https://opentdb.com/api.php?amount=2&type=multiple");
+
+    let res = match client.get(url).send() {
+        Ok(response) => response,
+        Err(_) => return,
+    };
+
+    let api_res = match res.json::<ApiResponse>() {
+        Ok(parsed) => parsed,
+        Err(_) => return,
+    };
+    
+    let mut questions = Vec::new();
+    for api_q in api_res.results {
+        // TODO: Need to randomize how Answer are inserted, and also maybe some sort
+        //       of panic in (I think not possible?) change that we receive anything
+        //       other than four answers
+        let answers = [
+            Answer {
+                text: api_q.correct_answer,
+                truth: true,
+            },
+            Answer {
+                text: api_q.incorrect_answers[0].clone(),
+                truth: false,
+            },
+            Answer {
+                text: api_q.incorrect_answers[1].clone(),
+                truth: false,
+            },
+            Answer {
+                text: api_q.incorrect_answers[2].clone(),
+                truth: false,
+            },
+        ];
+
+        questions.push(
+            Question {
+                text: api_q.question,
+                answers,
+            }
+        );
+    }
 
     cmds.insert_resource(Rounds {
         round_number: 0,
