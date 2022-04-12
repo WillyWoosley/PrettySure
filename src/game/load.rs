@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 use serde::Deserialize;
+use html_escape::decode_html_entities;
+use rand::Rng;
 
 use crate::AppState;
 
@@ -109,31 +111,27 @@ fn insert_trivia(mut cmds: Commands,
     // Format retrieved questions
     let mut questions = Vec::new();
     for api_q in api_res.results {
-        // TODO: Need to randomize how Answer are inserted, and also maybe some sort
-        //       of panic in (I think not possible?) change that we receive anything
-        //       other than four answers
-        let answers = [
-            Answer {
-                text: api_q.correct_answer,
-                truth: true,
-            },
-            Answer {
-                text: api_q.incorrect_answers[0].clone(),
-                truth: false,
-            },
-            Answer {
-                text: api_q.incorrect_answers[1].clone(),
-                truth: false,
-            },
-            Answer {
-                text: api_q.incorrect_answers[2].clone(),
-                truth: false,
-            },
-        ];
+        // Creates a random ordering of retrieved answers
+        let mut answers = [Answer::default(), Answer::default(), 
+                           Answer::default(), Answer::default()];
+        let t_ind = rand::thread_rng().gen_range(0..4);
+        let mut f_ind = 0;
+        for i in 0..4 {
+            if i == t_ind {
+                answers[i].text = decode_html_entities(&api_q.correct_answer)
+                                      .to_string();
+                answers[i].truth = true;
+            } else {
+                answers[i].text = decode_html_entities(&api_q.incorrect_answers[f_ind])
+                                      .to_string();
+                answers[i].truth = false;
+                f_ind += 1;
+            }
+        }
 
         questions.push(
             Question {
-                text: api_q.question,
+                text: decode_html_entities(&api_q.question).to_string(),
                 answers,
             }
         );
