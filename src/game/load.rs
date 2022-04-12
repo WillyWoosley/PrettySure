@@ -39,9 +39,22 @@ struct ApiQuestion {
 
 #[derive(Deserialize)]
 #[allow(dead_code)]
-struct ApiResponse {
+struct ApiQResponse {
     response_code: ResponseCode,
     results: Vec<ApiQuestion>,
+}
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+struct ApiIdResponse {
+    response_code: ResponseCode,
+    response_message: String,
+    token: String,
+}
+
+#[derive(Default)]
+struct SessionId {
+    id: Option<String>,
 }
 
 impl Plugin for LoadPlugin {
@@ -55,20 +68,45 @@ impl Plugin for LoadPlugin {
 // resource
 //
 // TODO: Better error handling
-fn insert_trivia(mut cmds: Commands, mut appstate: ResMut<State<AppState>>) {
+fn insert_trivia(mut cmds: Commands,
+                 mut appstate: ResMut<State<AppState>>,
+                 mut session_id: Local<SessionId>,
+) {
     let client = reqwest::blocking::Client::new();
-    let url = String::from("https://opentdb.com/api.php?amount=2&type=multiple");
 
-    let res = match client.get(url).send() {
+    // Retrieve and set a SessionId if not already set
+    if session_id.id.is_none() {
+        let session_res = match client.get(
+            "https://opentdb.com/api_token.php?command=request"
+        ).send() {
+            Ok(response) => response,
+            Err(_) => return,
+        };
+        
+        let api_res = match session_res.json::<ApiIdResponse>() {
+            Ok(parsed) => parsed,
+            Err(_) => return,
+        };
+
+        session_id.id = Some(api_res.token);
+    }
+
+    // Retrieve trivia questions
+    let res = match client.get(
+        format!("https://opentdb.com/api.php?amount=2&type=multiple&token={}", 
+                session_id.id.as_ref().unwrap()
+        ),
+    ).send() {
         Ok(response) => response,
         Err(_) => return,
     };
 
-    let api_res = match res.json::<ApiResponse>() {
+    let api_res = match res.json::<ApiQResponse>() {
         Ok(parsed) => parsed,
         Err(_) => return,
     };
     
+    // Format retrieved questions
     let mut questions = Vec::new();
     for api_q in api_res.results {
         // TODO: Need to randomize how Answer are inserted, and also maybe some sort
@@ -101,6 +139,7 @@ fn insert_trivia(mut cmds: Commands, mut appstate: ResMut<State<AppState>>) {
         );
     }
 
+    // Actually insert the trivia questions and move to next State
     cmds.insert_resource(Rounds {
         round_number: 0,
         round_max: questions.len(),
