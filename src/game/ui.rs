@@ -12,6 +12,10 @@ pub struct UiPlugin;
 
 #[derive(Component)]
 struct UiRoot;
+#[derive(Component)]
+pub struct QuestionCount(pub u8);
+#[derive(Component)]
+pub struct ScoreCount(pub u8);
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
@@ -63,7 +67,7 @@ fn setup_ui(mut cmds: Commands,
                         ..Default::default()
                     },
                     text: Text::with_section(
-                        "Questions",
+                        "Question: 1/2",
                         TextStyle {
                             font: asset_server.load("fonts/PublicSans-Medium.ttf"),
                             font_size: 24.,
@@ -72,16 +76,16 @@ fn setup_ui(mut cmds: Commands,
                         Default::default()
                     ),
                     ..Default::default()
-                });
+                }).insert(QuestionCount(1));
 
-                // Token Counter Text
+                // Score Counter Text
                 parent.spawn_bundle(TextBundle {
                     style: Style {
                         margin: Rect::all(Val::Px(5.)),
                         ..Default::default()
                     },
                     text: Text::with_section(
-                        "Tokens",
+                        "Score: 0",
                         TextStyle {
                             font: asset_server.load("fonts/PublicSans-Medium.ttf"),
                             font_size: 24.,
@@ -90,7 +94,7 @@ fn setup_ui(mut cmds: Commands,
                         Default::default()
                     ),
                     ..Default::default()
-                });
+                }).insert(ScoreCount(0));
             });
 
             // Token Slots

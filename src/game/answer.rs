@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{AppState, ButtonMaterials};
+use crate::game::ui::{ScoreCount, QuestionCount};
 use crate::game::token::{Token, On, SideLength};
 use crate::game::load::Rounds;
 
@@ -171,6 +172,7 @@ fn submit_tokens(mut submit_pressed: EventReader<SubmitPressed>,
                  mut new_round: EventWriter<NewRound>,
                  tokens: Query<&On, With<Token>>,
                  answer_blocks: Query<&Truth, With<AnswerBlock>>,
+                 mut score_count: Query<(&mut Text, &mut ScoreCount)>,
 ) {
     if submit_pressed.iter().last().is_some() {
         let mut correct = 0;
@@ -182,7 +184,10 @@ fn submit_tokens(mut submit_pressed: EventReader<SubmitPressed>,
             }
         }
 
-        info!("Got {} correct guesses!", correct);
+        let (mut text, mut score) = score_count.single_mut();
+        score.0 += correct;
+        text.sections[0].value = format!("Score: {}", score.0);
+
         new_round.send(NewRound);
     }
 }
@@ -190,12 +195,17 @@ fn submit_tokens(mut submit_pressed: EventReader<SubmitPressed>,
 fn update_round(mut new_round: EventReader<NewRound>,
                 mut rounds: ResMut<Rounds>,
                 mut appstate: ResMut<State<AppState>>,
+                mut q_count: Query<(&mut Text, &mut QuestionCount)>,
 ) {
     if new_round.iter().last().is_some() {
         if rounds.round_number + 1 == rounds.round_max {
             appstate.set(AppState::Menu).unwrap();
         } else {
             rounds.round_number += 1;
+            
+            let (mut text, mut question) = q_count.single_mut();
+            question.0 += 1;
+            text.sections[0].value = format!("Question: {}/2", question.0);
         }
     }
 }
