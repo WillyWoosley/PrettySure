@@ -7,6 +7,7 @@ use crate::game::answer::{
     SubmitButton,
 };
 use crate::game::token::TokenSlot;
+use crate::game::load::Rounds;
 
 pub struct UiPlugin;
 
@@ -16,11 +17,16 @@ struct UiRoot;
 pub struct QuestionCount(pub u8);
 #[derive(Component)]
 pub struct ScoreCount(pub u8);
+#[derive(Component)]
+struct ScoreCard;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_system_set(
                SystemSet::on_enter(AppState::Game).with_system(setup_ui))
+           .add_system_set(
+               SystemSet::on_update(AppState::Game).with_system(final_scorecard)
+                                                   .with_system(return_to_menu))
            .add_system_set(
                SystemSet::on_exit(AppState::Game).with_system(teardown_ui));
     }
@@ -232,11 +238,97 @@ fn setup_ui(mut cmds: Commands,
     }).insert(UiRoot);
 }
 
+// Spawns a final scorecard when all rounds are completed
+fn final_scorecard(score_q: Query<&ScoreCount>,
+                   windows: Res<Windows>,
+                   asset_server: Res<AssetServer>,
+                   mut cmds: Commands,
+                   rounds: Res<Rounds>,
+) {
+    if rounds.is_changed() && rounds.round_number == rounds.round_max {
+        let window = windows.get_primary().unwrap();
+        let x_dim = window.width() / 2.;
+        let y_dim = window.height() / 2.;
+        let score = score_q.single();
+
+        cmds.spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: Color::PURPLE,
+                custom_size: Some(Vec2::new(x_dim, y_dim)),
+                ..Default::default()
+            },
+            transform: Transform {
+                translation: Vec3::new(0., 0., 10.),
+                ..Default::default()
+            },
+            ..Default::default()
+        }).with_children(|parent| {
+            parent.spawn_bundle(SpriteBundle {
+                sprite: Sprite {
+                    color: Color::WHITE,
+                    custom_size: Some(Vec2::new(x_dim - 5., y_dim - 5.)),
+                    ..Default::default()
+                },
+                transform: Transform {
+                    translation: Vec3::new(0., 0., 11.),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+
+            parent.spawn_bundle(Text2dBundle {
+                transform: Transform::from_xyz(0., 0., 55.),
+                text: Text {
+                    sections: vec![
+                        TextSection {
+                            value: format!("Final Score: {} Points!\n", score.0),
+                            style: TextStyle {
+                                font: asset_server.load("fonts/PublicSans-Medium.ttf"),
+                                font_size: 24.,
+                                color: Color::BLACK,
+                            },
+                        },
+                        TextSection {
+                            value: String::from("Click anywhere to continue..."),
+                            style: TextStyle {
+                                font: asset_server.load("fonts/PublicSans-Medium.ttf"),
+                                font_size: 24.,
+                                color: Color::BLACK,
+                            },
+                        },
+
+                    ],
+                    alignment: TextAlignment {
+                        vertical: VerticalAlign::Center,
+                        horizontal: HorizontalAlign::Center,
+                    },
+                },
+                ..Default::default()
+            });
+        }).insert(ScoreCard);
+    }
+}
+
+// Returns to the main menu on any left click if the game is over
+fn return_to_menu(rounds: Res<Rounds>, 
+                  mouse_button: Res<Input<MouseButton>>,
+                  mut appstate: ResMut<State<AppState>>,
+) {
+    if mouse_button.just_pressed(MouseButton::Left) &&
+       rounds.round_number == rounds.round_max {
+        appstate.set(AppState::Menu).unwrap();
+    }
+}
 
 // Despawns all elements of the Ui 
-fn teardown_ui(ui_query: Query<Entity, With<UiRoot>>, mut cmds: Commands) {
-    for root in ui_query.iter() {
-        cmds.entity(root).despawn_recursive();
-    }
+fn teardown_ui(ui_q: Query<Entity, With<UiRoot>>,
+               scorecard_q: Query<Entity, With<ScoreCard>>,
+               mut cmds: Commands,
+) {
+    let root = ui_q.single();
+    cmds.entity(root).despawn_recursive();
+
+    let scorecard = scorecard_q.single();
+    cmds.entity(scorecard).despawn_recursive();
 }
 

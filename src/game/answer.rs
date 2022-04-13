@@ -64,11 +64,12 @@ fn spawn_answerblock(answer_slots: Query<(Entity, &GlobalTransform, &Node), With
 ) {
     let palette = [AnswerColor(Color::RED), AnswerColor(Color::GREEN), 
                    AnswerColor(Color::BLUE), AnswerColor(Color::YELLOW)];
-    let question = &rounds.questions[rounds.round_number];
 
     for (i, (slot_id, answer_gt, answer_node)) in answer_slots.iter().enumerate() {
         // Mega scuffed, but only way around my poor programming and Bevy's poor
         // frame-update dispatch decisions
+        let question = &rounds.questions[rounds.round_number];
+
         if answer_gt.translation.x != 0. || answer_gt.translation.y != 0. {
             let answer_t = answer_gt.translation + Vec3::new(OFFSET_X, OFFSET_Y, 0.);
 
@@ -194,15 +195,12 @@ fn submit_tokens(mut submit_pressed: EventReader<SubmitPressed>,
 
 fn update_round(mut new_round: EventReader<NewRound>,
                 mut rounds: ResMut<Rounds>,
-                mut appstate: ResMut<State<AppState>>,
                 mut q_count: Query<(&mut Text, &mut QuestionCount)>,
 ) {
     if new_round.iter().last().is_some() {
-        if rounds.round_number + 1 == rounds.round_max {
-            appstate.set(AppState::Menu).unwrap();
-        } else {
-            rounds.round_number += 1;
-            
+        rounds.round_number += 1;
+        
+        if rounds.round_number < rounds.round_max {
             let (mut text, mut question) = q_count.single_mut();
             question.0 += 1;
             text.sections[0].value = format!("Question: {}/2", question.0);
@@ -218,7 +216,7 @@ fn update_q_and_a(mut qa_text: QuerySet<(
                   mut truths: Query<&mut Truth>,
                   rounds: Res<Rounds>,
 ) {
-    if rounds.is_changed() {
+    if rounds.is_changed() && rounds.round_number < rounds.round_max {
         let new_q = &rounds.questions[rounds.round_number];
 
         // Update QuestionText 

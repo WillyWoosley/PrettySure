@@ -116,15 +116,15 @@ fn insert_trivia(mut cmds: Commands,
                            Answer::default(), Answer::default()];
         let t_ind = rand::thread_rng().gen_range(0..4);
         let mut f_ind = 0;
-        for i in 0..4 {
+        for (i, answer) in answers.iter_mut().enumerate() {
             if i == t_ind {
-                answers[i].text = decode_html_entities(&api_q.correct_answer)
+                answer.text = decode_html_entities(&api_q.correct_answer)
                                       .to_string();
-                answers[i].truth = true;
+                answer.truth = true;
             } else {
-                answers[i].text = decode_html_entities(&api_q.incorrect_answers[f_ind])
+                answer.text = decode_html_entities(&api_q.incorrect_answers[f_ind])
                                       .to_string();
-                answers[i].truth = false;
+                answer.truth = false;
                 f_ind += 1;
             }
         }
