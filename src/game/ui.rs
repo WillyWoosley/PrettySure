@@ -2,8 +2,8 @@ use bevy::prelude::*;
 
 use crate::AppState;
 use crate::game::answer::{
+    QuestionSlot,
     AnswerSlot,
-    QuestionText, 
     SubmitButton,
 };
 use crate::game::token::TokenSlot;
@@ -152,21 +152,7 @@ fn setup_ui(mut cmds: Commands,
                 },
                 color: Color::NONE.into(),
                 ..Default::default()
-            }).with_children(|parent| {
-                // Question Text
-                parent.spawn_bundle(TextBundle {
-                    text: Text::with_section(
-                        String::new(), 
-                        TextStyle {
-                            font: asset_server.load("fonts/PublicSans-Medium.ttf"),
-                            font_size: 40.,
-                            color: Color::BLACK,
-                        },
-                        Default::default(),
-                    ),
-                    ..Default::default()
-                }).insert(QuestionText);
-            });
+            }).insert(QuestionSlot);
             
             for _ in 0..2 {
                 // Row Answer Container

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::text::Text2dBounds;
 
 use crate::{AppState, ButtonMaterials};
 use crate::game::ui::{ScoreCount, QuestionCount};
@@ -21,6 +22,8 @@ struct AnswerText;
 pub struct AnswerColor(pub Color);
 #[derive(Default, Component)]
 pub struct Truth(pub bool);
+#[derive(Component)]
+pub struct QuestionSlot;
 #[derive(Component)]
 pub struct AnswerSlot;
 #[derive(Component)]
@@ -45,21 +48,63 @@ impl Plugin for CheckPlugin {
         app.add_event::<SubmitPressed>()
            .add_event::<NewRound>()
            .add_system_set(
-               SystemSet::on_update(AppState::Game).with_system(spawn_answerblock)
+               SystemSet::on_update(AppState::Game).with_system(spawn_questionblock)
+                                                   .with_system(spawn_answerblock)
                                                    .with_system(submit_button)
                                                    .with_system(submit_visible)
                                                    .with_system(submit_tokens)
                                                    .with_system(update_round)
                                                    .with_system(update_q_and_a))
            .add_system_set(
-               SystemSet::on_exit(AppState::Game).with_system(teardown_answerblocks));
+               SystemSet::on_exit(AppState::Game).with_system(teardown_blocks));
     }
 }
 
-// Spawns an 'answerblock' in every added AnswerSlot
-fn spawn_answerblock(answer_slots: Query<(Entity, &GlobalTransform, &Node), With<AnswerSlot>>,
+// Spawns a 'questionblock' in the QuestionSlot
+fn spawn_questionblock(question_slot: Query<(Entity, &GlobalTransform, &Node), 
+                        With<QuestionSlot>>,
+                    rounds: Res<Rounds>,
+                    asset_server: Res<AssetServer>,
+                    mut cmds: Commands,
+) {
+    for (slot_id, slot_gt, slot_node) in question_slot.iter() {
+        if slot_gt.translation.x != 0. || slot_gt.translation.y != 0. {
+            let question_t = slot_gt.translation 
+                + Vec3::new(OFFSET_X, OFFSET_Y, 0.);
+
+            cmds.spawn_bundle(Text2dBundle {
+               text: Text::with_section(
+                    rounds.questions[rounds.round_number].text.clone(),
+                    TextStyle {
+                        font: asset_server.load("fonts/PublicSans-Medium.ttf"),
+                        font_size: 40.,
+                        color: Color::BLACK,
+                    },
+                    TextAlignment {
+                        vertical: VerticalAlign::Center,
+                        horizontal: HorizontalAlign::Center,
+                    },
+                ),
+                transform: Transform {
+                    translation: question_t,
+                    ..Default::default()
+                },
+                text_2d_bounds: Text2dBounds {
+                    size: Size::new(slot_node.size.x, slot_node.size.y),
+                },
+                ..Default::default()
+            }).insert(QuestionText);
+            
+            cmds.entity(slot_id).remove::<QuestionSlot>();
+        }
+    }
+}
+
+// Spawns an 'answerblock' in every AnswerSlot
+fn spawn_answerblock(answer_slots: Query<(Entity, &GlobalTransform, &Node),
+                        With<AnswerSlot>>,
                      asset_server: Res<AssetServer>,
-                     rounds: ResMut<Rounds>,
+                     rounds: Res<Rounds>,
                      mut cmds: Commands,
 ) {
     let palette = [AnswerColor(Color::RED), AnswerColor(Color::GREEN), 
@@ -117,6 +162,9 @@ fn spawn_answerblock(answer_slots: Query<(Entity, &GlobalTransform, &Node), With
                             vertical: VerticalAlign::Center,
                             horizontal: HorizontalAlign::Center,
                         },
+                    },
+                    text_2d_bounds: Text2dBounds {
+                        size: Size::new(answer_node.size.x, answer_node.size.y),
                     },
                     ..Default::default()
                 }).insert(AnswerText);
@@ -234,12 +282,16 @@ fn update_q_and_a(mut qa_text: QuerySet<(
     }
 }
 
-// Removes all Answerblocks and children thereof
-fn teardown_answerblocks(answer_query: Query<Entity, With<AnswerBlock>>, 
-                         mut cmds: Commands,
+// Removes all blocks and children thereof
+fn teardown_blocks(answer_query: Query<Entity, With<AnswerBlock>>,
+                   question_query: Query<Entity, With<QuestionText>>,
+                   mut cmds: Commands,
 ) {
-    for answerblock in answer_query.iter() {
-        cmds.entity(answerblock).despawn_recursive();
+    for answer_id in answer_query.iter() {
+        cmds.entity(answer_id).despawn_recursive();
     }
+
+    let question_id = question_query.single();
+    cmds.entity(question_id).despawn();
 }
 
