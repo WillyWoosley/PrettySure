@@ -80,7 +80,7 @@ fn spawn_tokens(mut cmds: Commands, asset_server: Res<AssetServer>,
                     custom_size: Some(slot_node.size),
                     ..Default::default()
                 },
-                texture: asset_server.load("icon.png"),
+                texture: asset_server.load("token.png"),
                 ..Default::default()
             }).insert(TokenSprite);
         }).insert(StartSlot(slot_id));
