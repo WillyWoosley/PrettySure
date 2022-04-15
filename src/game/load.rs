@@ -1,7 +1,11 @@
 use bevy::prelude::*;
+use bevy::tasks::{AsyncComputeTaskPool, Task};
 use serde::Deserialize;
 use html_escape::decode_html_entities;
 use rand::Rng;
+use reqwest::Client;
+use futures_lite::future;
+use async_compat::Compat;
 
 use crate::AppState;
 
@@ -55,57 +59,105 @@ struct ApiIdResponse {
 }
 
 #[derive(Default)]
-struct SessionId {
+pub struct SessionId {
     id: Option<String>,
+}
+
+#[derive(Default)]
+struct SiteData {
+    session_id: SessionId,
+    rounds: Rounds,
 }
 
 impl Plugin for LoadPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(
-            SystemSet::on_enter(AppState::Load).with_system(insert_trivia));
+        app.insert_resource(SessionId {id: None})
+           .add_system_set(
+               SystemSet::on_enter(AppState::Load).with_system(spawn_trivia_get))
+           .add_system_set(
+               SystemSet::on_update(AppState::Load).with_system(insert_trivia));
     }
 }
 
-// Pulls trivia questions from OpenTDB over HTTP and inserts them as the 'Rounds'
-// resource
+// Spawns an Async call to retrieve trivia data
+fn spawn_trivia_get(thread_pool: Res<AsyncComputeTaskPool>,
+                    session_id: Res<SessionId>,
+                    mut cmds: Commands,
+) {
+    let id = session_id.id.clone();
+    let trivia_get = thread_pool.spawn(async move {
+        let site_data = Compat::new(async {
+            retrieve_questions(id).await
+        }).await;
+
+        site_data
+    });
+
+    cmds.spawn().insert(trivia_get);
+}
+
+// Awaits completion of HTTP requests and inserts Rounds (and potentially a SessionId
+// when done
+fn insert_trivia(mut question_task: Query<(Entity, &mut Task<SiteData>)>,
+                 mut session_id: ResMut<SessionId>,
+                 mut appstate: ResMut<State<AppState>>,
+                 mut cmds: Commands,
+) {
+    for (entity, mut task) in question_task.iter_mut() {
+        if let Some(site_data) = future::block_on(future::poll_once(&mut *task)) {
+            // Set SessionId if previously unset
+            if session_id.id.is_none() {
+                session_id.id = site_data.session_id.id;
+            }
+
+            // Insert Rounds and finish AppState::Load
+            cmds.insert_resource(site_data.rounds);
+            cmds.entity(entity).remove::<Task<Rounds>>();
+            appstate.set(AppState::Game).unwrap();
+        }
+    }
+}
+
+// Async function that handles HTTP queries to OpenTDB
 //
 // TODO: Better error handling
-fn insert_trivia(mut cmds: Commands,
-                 mut appstate: ResMut<State<AppState>>,
-                 mut session_id: Local<SessionId>,
-) {
-    let client = reqwest::blocking::Client::new();
+async fn retrieve_questions(session_id: Option<String>) -> SiteData {
+    let client = Client::new();
+    let mut site_data = SiteData::default();
 
     // Retrieve and set a SessionId if not already set
-    if session_id.id.is_none() {
+    if session_id.is_none() {
         let session_res = match client.get(
             "https://opentdb.com/api_token.php?command=request"
-        ).send() {
+        ).send().await {
             Ok(response) => response,
-            Err(_) => return,
+            Err(_) => return SiteData::default(),
         };
         
-        let api_res = match session_res.json::<ApiIdResponse>() {
+        let api_res = match session_res.json::<ApiIdResponse>().await {
             Ok(parsed) => parsed,
-            Err(_) => return,
+            Err(_) => return SiteData::default(),
         };
 
-        session_id.id = Some(api_res.token);
+        site_data.session_id = SessionId {
+            id: Some(api_res.token)
+        };
+    } else {
+        site_data.session_id.id = session_id;
     }
-
+   
     // Retrieve trivia questions
     let res = match client.get(
-        format!("https://opentdb.com/api.php?amount=2&type=multiple&token={}", 
-                session_id.id.as_ref().unwrap()
-        ),
-    ).send() {
+        format!("https://opentdb.com/api.php?amount=2&type=multiple&token={}",
+                site_data.session_id.id.as_ref().unwrap()))
+        .send().await {
         Ok(response) => response,
-        Err(_) => return,
+        Err(_) => return SiteData::default(),
     };
 
-    let api_res = match res.json::<ApiQResponse>() {
+    let api_res = match res.json::<ApiQResponse>().await {
         Ok(parsed) => parsed,
-        Err(_) => return,
+        Err(_) => return SiteData::default(),
     };
     
     // Format retrieved questions
@@ -137,13 +189,12 @@ fn insert_trivia(mut cmds: Commands,
         );
     }
 
-    // Actually insert the trivia questions and move to next State
-    cmds.insert_resource(Rounds {
+    site_data.rounds = Rounds {
         round_number: 0,
         round_max: questions.len(),
-        questions
-    });
-
-    appstate.set(AppState::Game).unwrap();
+        questions,
+    };
+    
+    site_data
 }
 

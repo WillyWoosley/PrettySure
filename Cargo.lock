@@ -135,6 +135,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-compat"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b48b4ff0c2026db683dea961cd8ea874737f56cffca86fa84415eaddc51c00d"
+dependencies = [
+ "futures-core",
+ "futures-io",
+ "once_cell",
+ "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
 name = "async-executor"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1363,12 +1376,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b7abd5d659d9b90c8cba917f6ec750a74e2dc23902ef9cd4cc8c8b22e6036a"
 dependencies = [
  "futures-core",
- "futures-io",
  "futures-task",
- "memchr",
  "pin-project-lite",
  "pin-utils",
- "slab",
 ]
 
 [[package]]
@@ -3105,7 +3115,6 @@ dependencies = [
  "libc",
  "memchr",
  "mio 0.8.1",
- "num_cpus",
  "pin-project-lite",
  "socket2",
  "winapi",
@@ -3228,7 +3237,9 @@ dependencies = [
 name = "trivia_project"
 version = "0.1.0"
 dependencies = [
+ "async-compat",
  "bevy",
+ "futures-lite",
  "html-escape",
  "rand",
  "reqwest",
