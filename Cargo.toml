@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { git = "https://github.com/bevyengine/bevy.git", rev = "954022c79945d9258fe3f2dcd26cfabfe23f67b7"}
+#bevy = { git = "https://github.com/bevyengine/bevy.git", rev = "954022c79945d9258fe3f2dcd26cfabfe23f67b7"}
+bevy = "0.7"
 reqwest = { version = "0.11", features = ["json"] }
 async-compat = "0.2.1"
 futures-lite = "1.12"

@@ -257,9 +257,9 @@ fn update_round(mut new_round: EventReader<NewRound>,
 }
 
 // Updates QuestionText and AnswerText for a new rounds when SubmitPressed
-fn update_q_and_a(mut qa_text: QuerySet<(
-                      QueryState<&mut Text, With<QuestionText>>,
-                      QueryState<(&mut Text, &Parent), With<AnswerText>>,
+fn update_q_and_a(mut qa_text: ParamSet<(
+                      Query<&mut Text, With<QuestionText>>,
+                      Query<(&mut Text, &Parent), With<AnswerText>>,
                   )>,
                   mut truths: Query<&mut Truth>,
                   rounds: Res<Rounds>,
@@ -268,12 +268,12 @@ fn update_q_and_a(mut qa_text: QuerySet<(
         let new_q = &rounds.questions[rounds.round_number];
 
         // Update QuestionText 
-        for mut question_text in qa_text.q0().iter_mut() {
+        for mut question_text in qa_text.p0().iter_mut() {
             question_text.sections[0].value = new_q.text.clone();
         }
 
         // Update AnswerText and Truth
-        for (i, (mut a_text, a_parent)) in qa_text.q1().iter_mut().enumerate() {
+        for (i, (mut a_text, a_parent)) in qa_text.p1().iter_mut().enumerate() {
             a_text.sections[0].value = new_q.answers[i].text.clone();
             if let Ok(mut a_truth) = truths.get_mut(a_parent.0) {
                 a_truth.0 = new_q.answers[i].truth;
