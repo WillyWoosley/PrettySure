@@ -21,6 +21,13 @@ pub struct Question {
     pub text: String,
     pub answers: [Answer; 4],
 }
+#[derive(Component)]
+struct LoadBar;
+#[derive(Component)]
+struct LoadText {
+    timer: Timer,
+    dots: u8,
+}
 
 #[derive(Default)]
 pub struct Rounds {
@@ -73,14 +80,18 @@ impl Plugin for LoadPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(SessionId {id: None})
            .add_system_set(
-               SystemSet::on_enter(AppState::Load).with_system(spawn_trivia_get))
+               SystemSet::on_enter(AppState::Load).with_system(spawn_load_task)
+                                                  .with_system(spawn_loadscreen))
            .add_system_set(
-               SystemSet::on_update(AppState::Load).with_system(insert_trivia));
+               SystemSet::on_update(AppState::Load).with_system(insert_trivia)
+                                                   .with_system(update_loadscreen))
+           .add_system_set(
+               SystemSet::on_exit(AppState::Load).with_system(teardown_loadscreen));
     }
 }
 
 // Spawns an Async call to retrieve trivia data
-fn spawn_trivia_get(thread_pool: Res<AsyncComputeTaskPool>,
+fn spawn_load_task(thread_pool: Res<AsyncComputeTaskPool>,
                     session_id: Res<SessionId>,
                     mut cmds: Commands,
 ) {
@@ -94,6 +105,35 @@ fn spawn_trivia_get(thread_pool: Res<AsyncComputeTaskPool>,
     });
 
     cmds.spawn().insert(trivia_get);
+}
+
+// Spawns some basic loading text
+fn spawn_loadscreen(asset_server: Res<AssetServer>, mut cmds: Commands) {
+    cmds.spawn_bundle(NodeBundle {
+        style: Style {
+            size: Size::new(Val::Percent(100.), Val::Percent(100.)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..Default::default()
+        },
+        ..Default::default()
+    }).with_children(|parent| {
+        parent.spawn_bundle(TextBundle {
+            text: Text::with_section(
+                String::from("Loading. . ."),
+                TextStyle {
+                    font: asset_server.load("fonts/PublicSans-Medium.ttf"),
+                    font_size: 64.,
+                    color: Color::BLACK,
+                },
+                Default::default(),
+            ),
+            ..Default::default()
+        }).insert(LoadText {
+            timer: Timer::from_seconds(0.5, true),
+            dots: 3,
+        });
+    }).insert(LoadBar);
 }
 
 // Awaits completion of HTTP requests and inserts Rounds (and potentially a SessionId
@@ -112,10 +152,34 @@ fn insert_trivia(mut question_task: Query<(Entity, &mut Task<SiteData>)>,
 
             // Insert Rounds and finish AppState::Load
             cmds.insert_resource(site_data.rounds);
-            cmds.entity(entity).remove::<Task<Rounds>>();
+            cmds.entity(entity).remove::<Task<SiteData>>();
             appstate.set(AppState::Game).unwrap();
         }
     }
+}
+
+// Simply animates the loading text
+fn update_loadscreen(mut load_query: Query<(&mut LoadText, &mut Text)>,
+                     time: Res<Time>,
+) {
+    let (mut load, mut text) = load_query.single_mut();
+    if load.timer.tick(time.delta()).just_finished() {
+        text.sections[0].value = match load.dots {
+            0 => String::from("Loading.    "),
+            1 => String::from("Loading. .  "),
+            2 => String::from("Loading. . ."),
+            _ => String::from("Loading     "),
+        };
+        load.dots = (load.dots + 1) % 4;
+    }
+}
+
+// Tears down loading text
+fn teardown_loadscreen(loadbar_query: Query<Entity, With<LoadBar>>,
+                       mut cmds: Commands,
+) {
+    let loadbar_id = loadbar_query.single();
+    cmds.entity(loadbar_id).despawn_recursive();
 }
 
 // Async function that handles HTTP queries to OpenTDB
