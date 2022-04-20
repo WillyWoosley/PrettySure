@@ -62,10 +62,10 @@ impl Plugin for CheckPlugin {
 
 // Spawns a 'questionblock' in the QuestionSlot
 fn spawn_questionblock(question_slot: Query<(Entity, &GlobalTransform, &Node), 
-                        With<QuestionSlot>>,
-                    rounds: Res<Rounds>,
-                    asset_server: Res<AssetServer>,
-                    mut cmds: Commands,
+                           With<QuestionSlot>>,
+                       rounds: Res<Rounds>,
+                       asset_server: Res<AssetServer>,
+                       mut cmds: Commands,
 ) {
     for (slot_id, slot_gt, slot_node) in question_slot.iter() {
         if slot_gt.translation.x != 0. || slot_gt.translation.y != 0. {

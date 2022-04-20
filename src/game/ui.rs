@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::text::Text2dBounds;
 
 use crate::AppState;
 use crate::game::answer::{
@@ -267,7 +268,7 @@ fn final_scorecard(score_q: Query<&ScoreCount>,
                 text: Text {
                     sections: vec![
                         TextSection {
-                            value: format!("Final Score: {} Points!\n", score.0),
+                            value: format!("Final Score: {} Points!\n\n", score.0),
                             style: TextStyle {
                                 font: asset_server.load("fonts/PublicSans-Medium.ttf"),
                                 font_size: 24.,
@@ -288,6 +289,9 @@ fn final_scorecard(score_q: Query<&ScoreCount>,
                         vertical: VerticalAlign::Center,
                         horizontal: HorizontalAlign::Center,
                     },
+                },
+                text_2d_bounds: Text2dBounds {
+                    size: Size::new(x_dim - 5., y_dim - 5.),
                 },
                 ..Default::default()
             });

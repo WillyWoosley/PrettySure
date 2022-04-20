@@ -1,11 +1,14 @@
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
+use bevy::text::Text2dBounds;
 use serde::Deserialize;
 use html_escape::decode_html_entities;
 use rand::Rng;
 use reqwest::Client;
 use futures_lite::future;
 use async_compat::Compat;
+
+use std::time::Duration;
 
 use crate::AppState;
 
@@ -28,6 +31,8 @@ struct LoadText {
     timer: Timer,
     dots: u8,
 }
+#[derive(Component)]
+struct ErrorCard;
 
 #[derive(Default)]
 pub struct Rounds {
@@ -35,10 +40,20 @@ pub struct Rounds {
     pub round_max: usize,
     pub questions: Vec<Question>,
 }
+#[derive(Default)]
+pub struct SessionId {
+    id: Option<String>,
+}
+#[derive(Default)]
+struct SiteData {
+    session_id: SessionId,
+    rounds: Rounds,
+}
+
+struct GetError; 
 
 #[derive(Deserialize)]
 struct ResponseCode(u8);
-
 #[derive(Deserialize)]
 #[allow(dead_code)]
 struct ApiQuestion {
@@ -49,14 +64,12 @@ struct ApiQuestion {
     correct_answer: String,
     incorrect_answers: Vec<String>,
 }
-
 #[derive(Deserialize)]
 #[allow(dead_code)]
 struct ApiQResponse {
     response_code: ResponseCode,
     results: Vec<ApiQuestion>,
 }
-
 #[derive(Deserialize)]
 #[allow(dead_code)]
 struct ApiIdResponse {
@@ -65,26 +78,18 @@ struct ApiIdResponse {
     token: String,
 }
 
-#[derive(Default)]
-pub struct SessionId {
-    id: Option<String>,
-}
-
-#[derive(Default)]
-struct SiteData {
-    session_id: SessionId,
-    rounds: Rounds,
-}
-
 impl Plugin for LoadPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(SessionId {id: None})
+           .add_event::<GetError>()
            .add_system_set(
                SystemSet::on_enter(AppState::Load).with_system(spawn_load_task)
                                                   .with_system(spawn_loadscreen))
            .add_system_set(
                SystemSet::on_update(AppState::Load).with_system(insert_trivia)
-                                                   .with_system(update_loadscreen))
+                                                   .with_system(update_loadscreen)
+                                                   .with_system(spawn_errorcard)
+                                                   .with_system(error_to_menu))
            .add_system_set(
                SystemSet::on_exit(AppState::Load).with_system(teardown_loadscreen));
     }
@@ -138,22 +143,33 @@ fn spawn_loadscreen(asset_server: Res<AssetServer>, mut cmds: Commands) {
 
 // Awaits completion of HTTP requests and inserts Rounds (and potentially a SessionId
 // when done
-fn insert_trivia(mut question_task: Query<(Entity, &mut Task<SiteData>)>,
+fn insert_trivia(mut question_task: Query<(Entity, &mut Task<Result<SiteData, ()>>)>,
+                 mut error_writer: EventWriter<GetError>,
                  mut session_id: ResMut<SessionId>,
                  mut appstate: ResMut<State<AppState>>,
                  mut cmds: Commands,
 ) {
     for (entity, mut task) in question_task.iter_mut() {
-        if let Some(site_data) = future::block_on(future::poll_once(&mut *task)) {
-            // Set SessionId if previously unset
-            if session_id.id.is_none() {
-                session_id.id = site_data.session_id.id;
+        if let Some(site_res) = future::block_on(future::poll_once(&mut *task)) {
+            match site_res {
+                // Site data successfully retrieved
+                Ok(site_data) => {
+                    // Set SessionId if previously unset
+                    if session_id.id.is_none() {
+                        session_id.id = site_data.session_id.id;
+                    }
+
+                    // Insert Rounds and finish AppState::Load
+                    cmds.insert_resource(site_data.rounds);
+                    appstate.set(AppState::Game).unwrap();
+                },
+                // Something went wrong along the way
+                Err(_) => {
+                    error_writer.send(GetError);
+                },
             }
 
-            // Insert Rounds and finish AppState::Load
-            cmds.insert_resource(site_data.rounds);
-            cmds.entity(entity).remove::<Task<SiteData>>();
-            appstate.set(AppState::Game).unwrap();
+            cmds.entity(entity).remove::<Task<Result<SiteData, ()>>>();
         }
     }
 }
@@ -162,31 +178,131 @@ fn insert_trivia(mut question_task: Query<(Entity, &mut Task<SiteData>)>,
 fn update_loadscreen(mut load_query: Query<(&mut LoadText, &mut Text)>,
                      time: Res<Time>,
 ) {
-    let (mut load, mut text) = load_query.single_mut();
-    if load.timer.tick(time.delta()).just_finished() {
-        text.sections[0].value = match load.dots {
-            0 => String::from("Loading.    "),
-            1 => String::from("Loading. .  "),
-            2 => String::from("Loading. . ."),
-            _ => String::from("Loading     "),
-        };
-        load.dots = (load.dots + 1) % 4;
+    for (mut load, mut text) in load_query.iter_mut() {
+        if load.timer.tick(time.delta()).just_finished() {
+            text.sections[0].value = match load.dots {
+                0 => String::from("Loading.    "),
+                1 => String::from("Loading. .  "),
+                2 => String::from("Loading. . ."),
+                _ => String::from("Loading     "),
+            };
+            load.dots = (load.dots + 1) % 4;
+        }
     }
 }
 
-// Tears down loading text
+// Spawns a simple error card when an error is encountered trying during HTTP question 
+// retrieval
+fn spawn_errorcard(load_query: Query<Entity, With<LoadBar>>,
+                   mut error_reader: EventReader<GetError>, 
+                   asset_server: Res<AssetServer>,
+                   windows: Res<Windows>,
+                   mut cmds: Commands,
+) {
+    if error_reader.iter().next().is_some() {
+        let window = windows.get_primary().unwrap();
+        let x_dim = window.width() / 2.;
+        let y_dim = window.height() / 2.;
+        
+        let load_id = load_query.single();
+        cmds.entity(load_id).despawn_recursive();
+
+        cmds.spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: Color::PURPLE,
+                custom_size: Some(Vec2::new(x_dim, y_dim)),
+                ..Default::default()
+            },
+            transform: Transform {
+                translation: Vec3::new(0., 0., 10.),
+                ..Default::default()
+            },
+            ..Default::default()
+        }).with_children(|parent| {
+            parent.spawn_bundle(SpriteBundle {
+                sprite: Sprite {
+                    color: Color::WHITE,
+                    custom_size: Some(Vec2::new(x_dim - 5., y_dim - 5.)),
+                    ..Default::default()
+                },
+                transform: Transform {
+                    translation: Vec3::new(0., 0., 11.),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+
+            parent.spawn_bundle(Text2dBundle {
+                transform: Transform::from_xyz(0., 0., 55.),
+                text: Text {
+                    sections: vec![
+                        TextSection {
+                            value: String::from("An error occured while retrieving \
+                                                your trivia questions. Please check \
+                                                your internet connection and try \
+                                                again.\n\n"),
+                            style: TextStyle {
+                                font: asset_server.load("fonts/PublicSans-Medium.ttf"),
+                                font_size: 24.,
+                                color: Color::BLACK,
+                            },
+                        },
+                        TextSection {
+                            value: String::from("Click anywhere to continue..."),
+                            style: TextStyle {
+                                font: asset_server.load("fonts/PublicSans-Medium.ttf"),
+                                font_size: 24.,
+                                color: Color::BLACK,
+                            },
+                        },
+
+                    ],
+                    alignment: TextAlignment {
+                        vertical: VerticalAlign::Center,
+                        horizontal: HorizontalAlign::Center,
+                    },
+                },
+                text_2d_bounds: Text2dBounds {
+                    size: Size::new(x_dim, y_dim),
+                },
+                ..Default::default()
+            });
+        }).insert(ErrorCard);
+    }
+}
+
+// Returns to Menu on a left click after an HTTP error occurs
+fn error_to_menu(errorcard_query: Query<&ErrorCard>,
+                 mouse_button: Res<Input<MouseButton>>,
+                 mut appstate: ResMut<State<AppState>>,
+) {
+    if errorcard_query.iter().next().is_some() {
+        if mouse_button.just_pressed(MouseButton::Left) {
+            appstate.set(AppState::Menu).unwrap();
+        }
+    }
+}
+
+// Tears down loading text and errorcard, if either exists
 fn teardown_loadscreen(loadbar_query: Query<Entity, With<LoadBar>>,
+                       errorcard_query: Query<Entity, With<ErrorCard>>,
                        mut cmds: Commands,
 ) {
-    let loadbar_id = loadbar_query.single();
-    cmds.entity(loadbar_id).despawn_recursive();
+    for loadbar_id in loadbar_query.iter() {
+        cmds.entity(loadbar_id).despawn_recursive();
+    }
+
+    for errorcard_id in errorcard_query.iter() {
+        cmds.entity(errorcard_id).despawn_recursive();
+    }
 }
 
 // Async function that handles HTTP queries to OpenTDB
-//
-// TODO: Better error handling
-async fn retrieve_questions(session_id: Option<String>) -> SiteData {
-    let client = Client::new();
+async fn retrieve_questions(session_id: Option<String>) -> Result<SiteData, ()> {
+    let client = match Client::builder().timeout(Duration::from_secs(20)).build() {
+        Ok(client) => client,
+        Err(_) => return Err(()),
+    };
     let mut site_data = SiteData::default();
 
     // Retrieve and set a SessionId if not already set
@@ -195,12 +311,12 @@ async fn retrieve_questions(session_id: Option<String>) -> SiteData {
             "https://opentdb.com/api_token.php?command=request"
         ).send().await {
             Ok(response) => response,
-            Err(_) => return SiteData::default(),
+            Err(_) => return Err(()),
         };
         
         let api_res = match session_res.json::<ApiIdResponse>().await {
             Ok(parsed) => parsed,
-            Err(_) => return SiteData::default(),
+            Err(_) => return Err(()),
         };
 
         site_data.session_id = SessionId {
@@ -213,15 +329,15 @@ async fn retrieve_questions(session_id: Option<String>) -> SiteData {
     // Retrieve trivia questions
     let res = match client.get(
         format!("https://opentdb.com/api.php?amount=2&type=multiple&token={}",
-                site_data.session_id.id.as_ref().unwrap()))
-        .send().await {
+                site_data.session_id.id.as_ref().unwrap())
+    ).send().await {
         Ok(response) => response,
-        Err(_) => return SiteData::default(),
+        Err(_) => return Err(()),
     };
 
     let api_res = match res.json::<ApiQResponse>().await {
         Ok(parsed) => parsed,
-        Err(_) => return SiteData::default(),
+        Err(_) => return Err(()),
     };
     
     // Format retrieved questions
@@ -259,6 +375,6 @@ async fn retrieve_questions(session_id: Option<String>) -> SiteData {
         questions,
     };
     
-    site_data
+    Ok(site_data)
 }
 
