@@ -17,6 +17,8 @@ pub struct SubmitButton;
 #[derive(Default, Component)]
 pub struct AnswerBlock;
 #[derive(Component)]
+struct AnswerBorder;
+#[derive(Component)]
 struct AnswerText;
 #[derive(Default, Component, Clone, Copy)]
 pub struct AnswerColor(pub Color);
@@ -28,6 +30,11 @@ pub struct QuestionSlot;
 pub struct AnswerSlot;
 #[derive(Component)]
 pub struct QuestionText;
+#[derive(Component)]
+struct Highlight {
+    timer: Timer,
+    remain: u8,
+}
 
 #[derive(Default, Bundle)]
 struct AnswerBundle {
@@ -40,8 +47,7 @@ struct AnswerBundle {
 }
 
 struct SubmitPressed;
-struct NewRound; // TODO: would love to remove, but SystemSet and Stages funky ATM,
-                 //       both on my and Bevy's end
+struct NewRound;
 
 impl Plugin for CheckPlugin {
     fn build(&self, app: &mut App) {
@@ -53,6 +59,7 @@ impl Plugin for CheckPlugin {
                                                    .with_system(submit_button)
                                                    .with_system(submit_visible)
                                                    .with_system(submit_tokens)
+                                                   .with_system(highlight_correct)
                                                    .with_system(update_round)
                                                    .with_system(update_q_and_a))
            .add_system_set(
@@ -124,8 +131,8 @@ fn spawn_answerblock(answer_slots: Query<(Entity, &GlobalTransform, &Node),
                 color: palette[i],
                 truth: Truth(question.answers[i].truth),
                 side_length: SideLength {
-                    x_len: answer_node.size.x,
-                    y_len: answer_node.size.y,
+                    x_len: answer_node.size.x - 5.,
+                    y_len: answer_node.size.y - 5.,
                 },
                 transform: Transform {
                     translation: answer_t,
@@ -133,41 +140,53 @@ fn spawn_answerblock(answer_slots: Query<(Entity, &GlobalTransform, &Node),
                 },
                 ..Default::default()
             }).with_children(|parent| {
-                // Answer Sprite
+                // Answer Border
                 parent.spawn_bundle(SpriteBundle {
                     sprite: Sprite {
-                        color: palette[i].0,
+                        color: Color::WHITE,
                         custom_size: Some(answer_node.size),
                         ..Default::default()
                     },
                     ..Default::default()
-                });
-                
-                // Answer Text
-                parent.spawn_bundle(Text2dBundle {
-                    transform: Transform::from_xyz(0., 0., 0.5),
-                    text: Text {
-                        sections: vec![
-                            TextSection {
-                                value: question.answers[i].text.clone(),
-                                style: TextStyle {
-                                    font: asset_server
-                                              .load("fonts/PublicSans-Medium.ttf"),
-                                    font_size: 24.,
-                                    color: Color::BLACK,
-                                },
-                            },
-                        ],
-                        alignment: TextAlignment {
-                            vertical: VerticalAlign::Center,
-                            horizontal: HorizontalAlign::Center,
+                }).insert(AnswerBorder).with_children(|parent| {
+                    // Answer Sprite
+                    parent.spawn_bundle(SpriteBundle {
+                        sprite: Sprite {
+                            color: palette[i].0,
+                            custom_size: Some(Vec2::new(answer_node.size.x - 5., 
+                                                        answer_node.size.y - 5.)),
+                            ..Default::default()
                         },
-                    },
-                    text_2d_bounds: Text2dBounds {
-                        size: Size::new(answer_node.size.x, answer_node.size.y),
-                    },
-                    ..Default::default()
-                }).insert(AnswerText);
+                        transform: Transform::from_xyz(0., 0., 0.5),
+                        ..Default::default()
+                    });
+                    
+                    // Answer Text
+                    parent.spawn_bundle(Text2dBundle {
+                        transform: Transform::from_xyz(0., 0., 1.),
+                        text: Text {
+                            sections: vec![
+                                TextSection {
+                                    value: question.answers[i].text.clone(),
+                                    style: TextStyle {
+                                        font: asset_server
+                                                  .load("fonts/PublicSans-Medium.ttf"),
+                                        font_size: 24.,
+                                        color: Color::BLACK,
+                                    },
+                                },
+                            ],
+                            alignment: TextAlignment {
+                                vertical: VerticalAlign::Center,
+                                horizontal: HorizontalAlign::Center,
+                            },
+                        },
+                        text_2d_bounds: Text2dBounds {
+                            size: Size::new(answer_node.size.x, answer_node.size.y),
+                        },
+                        ..Default::default()
+                    }).insert(AnswerText);
+                });
             });
 
             cmds.entity(slot_id).remove::<AnswerSlot>();
@@ -179,12 +198,17 @@ fn submit_button(mut submit_pressed: EventWriter<SubmitPressed>,
                  mut submit_query: Query<(&Visibility, &Interaction, &mut UiColor),
                                          (Changed<Interaction>, With<SubmitButton>)>,
                  button_colors: Res<ButtonMaterials>,
+                 mut windows: ResMut<Windows>,
 ) {
     for (visibility, interaction, mut color) in submit_query.iter_mut() {
         if visibility.is_visible {
+            let window = windows.get_primary_mut().unwrap();
+
             match interaction {
                 Interaction::Clicked => {
                     *color = button_colors.clicked;
+                    window.set_cursor_visibility(false);
+                    window.set_cursor_lock_mode(true);
                     submit_pressed.send(SubmitPressed);
                 },
                 Interaction::Hovered => {
@@ -218,26 +242,68 @@ fn submit_visible(token_query: Query<Option<&On>, With<Token>>,
 
 // Determines whether tokens were on a correct or incorrect answer when submitted
 fn submit_tokens(mut submit_pressed: EventReader<SubmitPressed>,
-                 mut new_round: EventWriter<NewRound>,
                  tokens: Query<&On, With<Token>>,
-                 answer_blocks: Query<&Truth, With<AnswerBlock>>,
+                 answer_blocks: Query<(Entity, &Truth), With<AnswerBlock>>,
                  mut score_count: Query<(&mut Text, &mut ScoreCount)>,
+                 mut cmds: Commands,
 ) {
     if submit_pressed.iter().last().is_some() {
         let mut correct = 0;
         for token_on in tokens.iter() {
-            if let Ok(answer_truth) = answer_blocks.get(token_on.0) {
+            if let Ok((_, answer_truth)) = answer_blocks.get(token_on.0) {
                 if answer_truth.0 {
                     correct += 1;
                 }
+            }
+        }
+        
+        for (answer_id, answer_truth) in answer_blocks.iter() {
+            if answer_truth.0 {
+                cmds.entity(answer_id).insert(Highlight {
+                    timer: Timer::from_seconds(0.5, true),
+                    remain: 3,
+                }); 
             }
         }
 
         let (mut text, mut score) = score_count.single_mut();
         score.0 += correct;
         text.sections[0].value = format!("Score: {}", score.0);
+    }
+}
 
-        new_round.send(NewRound);
+// Plays a simple animation around correct answer, then signals a new round
+fn highlight_correct(mut highlight_query: Query<(Entity, &Children, &mut Highlight)>,
+                     mut border_query: Query<&mut Sprite, With<AnswerBorder>>,
+                     mut new_round: EventWriter<NewRound>,
+                     mut windows: ResMut<Windows>,
+                     time: Res<Time>,
+                     mut cmds: Commands,
+) {
+    for (hl_id, hl_children, mut hl) in highlight_query.iter_mut() {
+        if hl.timer.tick(time.delta()).just_finished() {
+            if hl.remain == 0 {
+                // Animating done, unlock mouse and start new round
+                cmds.entity(hl_id).remove::<Highlight>();
+                new_round.send(NewRound);
+                
+                let window = windows.get_primary_mut().unwrap();
+                window.set_cursor_visibility(true);
+                window.set_cursor_lock_mode(false);
+            } else {
+                // Need to animate, find correct border and toggle color
+                for &child in hl_children.iter() {
+                    if let Ok(mut border_sprite) = border_query.get_mut(child) {
+                        if border_sprite.color == Color::WHITE {
+                            border_sprite.color = Color::BLACK;
+                        } else {
+                            border_sprite.color = Color::WHITE;
+                            hl.remain -= 1;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
