@@ -24,7 +24,7 @@ fn main() {
         .insert_resource(WindowDescriptor {
             width: 800.,
             height: 600.,
-            title: "Trivia Game".to_string(),
+            title: "PrettySure".to_string(),
             ..Default::default()
         })
         .insert_resource(ClearColor(Color::rgb(1., 1., 1.)))
