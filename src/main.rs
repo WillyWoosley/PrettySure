@@ -1,13 +1,15 @@
 use bevy::prelude::*;
 
-use crate::{game::GamePlugin, menu::MenuPlugin};
+use crate::{game::GamePlugin, menu::MenuPlugin, help::HelpPlugin};
 
 mod menu;
+mod help;
 mod game;
 
 #[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub enum AppState {
     Menu,
+    Help,
     Load,
     Game,
 }
@@ -30,6 +32,7 @@ fn main() {
         .insert_resource(ClearColor(Color::rgb(1., 1., 1.)))
         .add_plugins(DefaultPlugins)
         .add_plugin(MenuPlugin)
+        .add_plugin(HelpPlugin)
         .add_plugin(GamePlugin)
         .add_state(AppState::Menu)
         .add_startup_system(setup)

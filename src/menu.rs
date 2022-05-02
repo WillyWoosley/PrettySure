@@ -4,6 +4,11 @@ use crate::{AppState, ButtonMaterials};
 
 pub struct MenuPlugin;
 
+#[derive(Component)]
+struct PlayButton;
+#[derive(Component)]
+struct HelpButton;
+
 struct MenuData {
     menu_handle: Entity,
 }
@@ -13,7 +18,8 @@ impl Plugin for MenuPlugin {
         app.add_system_set(
                 SystemSet::on_enter(AppState::Menu).with_system(setup_menu))
             .add_system_set(
-                SystemSet::on_update(AppState::Menu).with_system(play_button))
+                SystemSet::on_update(AppState::Menu).with_system(play_button)
+                                                    .with_system(help_button))
             .add_system_set(
                 SystemSet::on_exit(AppState::Menu).with_system(teardown_menu));
     }
@@ -30,6 +36,7 @@ fn setup_menu(mut cmds: Commands, asset_server: Res<AssetServer>) {
         },
         ..Default::default()
     }).with_children(|parent| {
+        // Logo
         parent.spawn_bundle(ImageBundle {
             style: Style {
                 size: Size::new(Val::Px(256.), Val::Px(256.)),
@@ -39,6 +46,7 @@ fn setup_menu(mut cmds: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         });
 
+        // Menu Text
         parent.spawn_bundle(TextBundle {
             text: Text::with_section(
                     "PrettySure",
@@ -51,8 +59,7 @@ fn setup_menu(mut cmds: Commands, asset_server: Res<AssetServer>) {
                   ),
             ..Default::default()
         });
-
-       parent.spawn_bundle(TextBundle {
+        parent.spawn_bundle(TextBundle {
             text: Text::with_section(
                     "A trivia game about hedging your bets!",
                     TextStyle {
@@ -65,6 +72,7 @@ fn setup_menu(mut cmds: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         });
 
+        // Play Button
         parent.spawn_bundle(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.), Val::Px(50.)),
@@ -78,7 +86,7 @@ fn setup_menu(mut cmds: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle {
                 text: Text::with_section(
-                          "Play",
+                          "Play!",
                           TextStyle {
                               font: asset_server.load("fonts/PublicSans-Medium.ttf"),
                               font_size: 40.,
@@ -88,7 +96,35 @@ fn setup_menu(mut cmds: Commands, asset_server: Res<AssetServer>) {
                       ),
                 ..Default::default()
             });
-        });
+        })
+        .insert(PlayButton);
+
+        // Help Button
+        parent.spawn_bundle(ButtonBundle {
+            style: Style {
+                size: Size::new(Val::Px(150.), Val::Px(50.)),
+                margin: Rect::all(Val::Auto),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            parent.spawn_bundle(TextBundle {
+                text: Text::with_section(
+                          "Help?",
+                          TextStyle {
+                              font: asset_server.load("fonts/PublicSans-Medium.ttf"),
+                              font_size: 40.,
+                              color: Color::rgb(1., 1., 1.),
+                          },
+                          Default::default(),
+                      ),
+                ..Default::default()
+            });
+        })
+        .insert(HelpButton);
     }).id();
 
     cmds.insert_resource(MenuData{menu_handle});
@@ -96,7 +132,7 @@ fn setup_menu(mut cmds: Commands, asset_server: Res<AssetServer>) {
 
 fn play_button(mut state: ResMut<State<AppState>>, 
                mut query: Query<(&Interaction, &mut UiColor),
-                                (Changed<Interaction>, With<Button>)>,
+                                (Changed<Interaction>, With<PlayButton>)>,
                button_colors: Res<ButtonMaterials>,               
 ) {
     for (interaction, mut color) in query.iter_mut() {
@@ -113,6 +149,27 @@ fn play_button(mut state: ResMut<State<AppState>>,
             }
         }
     }
+}
+
+fn help_button(mut state: ResMut<State<AppState>>,
+               mut query: Query<(&Interaction, &mut UiColor),
+                                (Changed<Interaction>, With<HelpButton>)>,
+               button_colors: Res<ButtonMaterials>,
+) {
+    for (interaction, mut color) in query.iter_mut() {
+        match interaction {
+            Interaction::Clicked => {
+                *color = button_colors.clicked;
+                state.set(AppState::Help).unwrap();
+            },
+            Interaction::Hovered => {
+                *color = button_colors.hovered;
+            },
+            Interaction::None => {
+                *color = button_colors.none;
+            }
+        }
+    }   
 }
 
 fn teardown_menu(mut cmds: Commands, menu_data: Res<MenuData>) {
