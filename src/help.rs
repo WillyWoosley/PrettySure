@@ -32,8 +32,8 @@ fn spawn_help_menu(asset_server: Res<AssetServer>,
     cmds.spawn_bundle(Text2dBundle {
        text: Text::with_section(
              "PrettySure is a trivia game where you place your bets upon \
-              various answers to the question posed using your \"tokens\"\n\n\
-              A general turn is played by using left click to drag your tokens, \
+              various answers to the question posed using your \"tokens.\"\n\n\
+              A turn is played by using left click to drag your tokens, \
               located on the lefthand side of the screen, onto one of the four \
               answer boxes. The token will take on the color of the answer it \
               is on top of when properly placed. Once all five tokens have been \
@@ -65,8 +65,8 @@ fn spawn_help_menu(asset_server: Res<AssetServer>,
              "All questions provided by OpenTDB under the Creative Commons Sharealike \
              License, 4.0 \n PublicSans font provided under the SIL Open Font License, \
              1.1.\n This work was produced using the Bevy game engine, and is licensed \
-             under the Creative Commons Sharealike License, 4.0.\nFurther information \
-             and the full license text can be found at \
+             under the GNU General Public License, v3.\nFurther information and the \
+             full license text can be found at \
              https://github.com/WillyWoosley/PrettySure",
             TextStyle {
                 font: asset_server.load("fonts/PublicSans-Medium.ttf"),

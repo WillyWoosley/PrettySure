@@ -1,7 +1,10 @@
 [package]
 name = "trivia_project"
 version = "0.1.0"
+authors = ["Willy Woosley"]
 edition = "2021"
+repository = "https://github.com/WillyWoosley/PrettySure"
+license = "GPL-3.0-or-later"
 
 [dependencies]
 #bevy = { git = "https://github.com/bevyengine/bevy.git", rev = "954022c79945d9258fe3f2dcd26cfabfe23f67b7"}
