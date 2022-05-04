@@ -74,7 +74,7 @@ fn setup_ui(mut cmds: Commands,
                         ..Default::default()
                     },
                     text: Text::with_section(
-                        "Question: 1/2",
+                        "Question: 1/8",
                         TextStyle {
                             font: asset_server.load("fonts/PublicSans-Medium.ttf"),
                             font_size: 24.,

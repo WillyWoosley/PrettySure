@@ -40,7 +40,7 @@ fn spawn_help_menu(asset_server: Res<AssetServer>,
               placed on top of an answer, a submit button will appear at the \
               bottom of the screen, allowing you to lock in your answer and see \
               the correct one highlighted.\n\nPlay through all ten questions, and \
-              try to get as close as possible to the maximum score of 50 \
+              try to get as close as possible to the maximum score of 40 \
               points!",
             TextStyle {
                 font: asset_server.load("fonts/PublicSans-Medium.ttf"),

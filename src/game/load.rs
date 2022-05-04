@@ -328,7 +328,7 @@ async fn retrieve_questions(session_id: Option<String>) -> Result<SiteData, ()> 
    
     // Retrieve trivia questions
     let res = match client.get(
-        format!("https://opentdb.com/api.php?amount=2&type=multiple&token={}",
+        format!("https://opentdb.com/api.php?amount=8&type=multiple&token={}",
                 site_data.session_id.id.as_ref().unwrap())
     ).send().await {
         Ok(response) => response,

@@ -319,7 +319,7 @@ fn update_round(mut new_round: EventReader<NewRound>,
         if rounds.round_number < rounds.round_max {
             let (mut text, mut question) = q_count.single_mut();
             question.0 += 1;
-            text.sections[0].value = format!("Question: {}/2", question.0);
+            text.sections[0].value = format!("Question: {}/8", question.0);
         }
     }
 }
