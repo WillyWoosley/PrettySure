@@ -22,7 +22,7 @@ struct AnswerBorder;
 struct AnswerText;
 #[derive(Default, Component, Clone, Copy)]
 pub struct AnswerColor(pub Color);
-#[derive(Default, Component)]
+#[derive(Default, Debug, Component)]
 pub struct Truth(pub bool);
 #[derive(Component)]
 pub struct QuestionSlot;
@@ -194,6 +194,7 @@ fn spawn_answerblock(answer_slots: Query<(Entity, &GlobalTransform, &Node),
     }
 }
 
+// Click handler for hitting the submit button
 fn submit_button(mut submit_pressed: EventWriter<SubmitPressed>,
                  mut submit_query: Query<(&Visibility, &Interaction, &mut UiColor),
                                          (Changed<Interaction>, With<SubmitButton>)>,
@@ -307,6 +308,7 @@ fn highlight_correct(mut highlight_query: Query<(Entity, &Children, &mut Highlig
     }
 }
 
+// Updates internal round counter and QuestionCount text
 fn update_round(mut new_round: EventReader<NewRound>,
                 mut rounds: ResMut<Rounds>,
                 mut q_count: Query<(&mut Text, &mut QuestionCount)>,
@@ -325,8 +327,9 @@ fn update_round(mut new_round: EventReader<NewRound>,
 // Updates QuestionText and AnswerText for a new rounds when SubmitPressed
 fn update_q_and_a(mut qa_text: ParamSet<(
                       Query<&mut Text, With<QuestionText>>,
-                      Query<(&mut Text, &Parent), With<AnswerText>>,
+                      Query<&mut Text, With<AnswerText>>,
                   )>,
+                  answerborder_family: Query<(&Parent, &Children), With<AnswerBorder>>,
                   mut truths: Query<&mut Truth>,
                   rounds: Res<Rounds>,
 ) {
@@ -337,12 +340,17 @@ fn update_q_and_a(mut qa_text: ParamSet<(
         for mut question_text in qa_text.p0().iter_mut() {
             question_text.sections[0].value = new_q.text.clone();
         }
-
+        
         // Update AnswerText and Truth
-        for (i, (mut a_text, a_parent)) in qa_text.p1().iter_mut().enumerate() {
-            a_text.sections[0].value = new_q.answers[i].text.clone();
-            if let Ok(mut a_truth) = truths.get_mut(a_parent.0) {
-                a_truth.0 = new_q.answers[i].truth;
+        for (i, (ab_parent, ab_children)) in answerborder_family.iter().enumerate() {
+            if let Ok(mut parent_truth) = truths.get_mut(ab_parent.0) {
+                parent_truth.0 = new_q.answers[i].truth;
+            }
+
+            for &child in ab_children.iter() {
+                if let Ok(mut child_text) = qa_text.p1().get_mut(child) {
+                    child_text.sections[0].value = new_q.answers[i].text.clone();
+                }
             }
         }
     }
