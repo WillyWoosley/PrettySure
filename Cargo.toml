@@ -1,8 +1,9 @@
 [package]
-name = "trivia_project"
+name = "PrettySure"
 version = "0.1.0"
 authors = ["Willy Woosley"]
 edition = "2021"
+readme = "README.md"
 repository = "https://github.com/WillyWoosley/PrettySure"
 license = "GPL-3.0-or-later"
 

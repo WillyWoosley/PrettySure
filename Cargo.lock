@@ -3,6 +3,19 @@
 version = 3
 
 [[package]]
+name = "PrettySure"
+version = "0.1.0"
+dependencies = [
+ "async-compat",
+ "bevy",
+ "futures-lite",
+ "html-escape",
+ "rand",
+ "reqwest",
+ "serde",
+]
+
+[[package]]
 name = "ab_glyph"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3282,19 +3295,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "trivia_project"
-version = "0.1.0"
-dependencies = [
- "async-compat",
- "bevy",
- "futures-lite",
- "html-escape",
- "rand",
- "reqwest",
- "serde",
 ]
 
 [[package]]
