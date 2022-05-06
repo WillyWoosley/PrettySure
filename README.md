@@ -6,15 +6,15 @@ PrettySure is a trivia game, but rather than only allowing you to select one rig
 ## Example Play
 At first, all tokens are on the lefthand side of the screen, and colorless.
 
-![Unwagered](unwagered.png)
+![Unwagered](screengrabs/unwagered.png)
 
 After distributing the tokens, the Submit button appears on the bottom of the screen. Note that the tokens have taken on the color of the answers they are wagered on.
 
-![Wagered](wagered.png)
+![Wagered](screengrabs/wagered.png)
 
-After hitting submit, points are awarded, and tokens reset for the start of another question.
+After hitting Submit, points are awarded, and tokens reset for the start of another question.
 
-![Reset](reset.png)
+![Reset](screengrabs/reset.png)
 
 Play continues until you have progressed through all 8 questions. Good luck!
 
