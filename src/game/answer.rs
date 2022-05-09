@@ -115,7 +115,7 @@ fn spawn_answerblock(answer_slots: Query<(Entity, &GlobalTransform, &Node),
                      mut cmds: Commands,
 ) {
     let palette = [AnswerColor(Color::RED), AnswerColor(Color::GREEN), 
-                   AnswerColor(Color::BLUE), AnswerColor(Color::YELLOW)];
+                   AnswerColor(Color::rgb(0.117, 0.470, 0.823)), AnswerColor(Color::YELLOW)];
 
     for (i, (slot_id, answer_gt, answer_node)) in answer_slots.iter().enumerate() {
         // Mega scuffed, but only way around my poor programming and Bevy's poor
