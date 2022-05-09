@@ -1,5 +1,5 @@
 // Disables console opening on Windows
-#[cfg_attr(not(debug_assertions), windows_subsystem = "wiindows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use bevy::prelude::*;
 
