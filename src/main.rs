@@ -1,3 +1,6 @@
+// Disables console opening on Windows
+#[cfg_attr(not(debug_assertions), windows_subsystem = "wiindows")]
+
 use bevy::prelude::*;
 
 use crate::{game::GamePlugin, menu::MenuPlugin, help::HelpPlugin};

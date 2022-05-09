@@ -17,3 +17,6 @@ serde = { version = "1.0", features = ["derive"] }
 html-escape = "0.2"
 rand = "0.8"
 
+[build-dependencies]
+embed-resource = "1.6.3"
+
